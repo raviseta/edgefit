@@ -1,5 +1,11 @@
 # EdgeFit
 
+[![License: MIT](https://img.shields.io/github/license/raviseta/edgefit)](LICENSE)
+[![Platform: iOS](https://img.shields.io/badge/platform-iOS-lightgrey?logo=apple)](#getting-started)
+[![Expo SDK](https://img.shields.io/github/package-json/dependency-version/raviseta/edgefit/expo?label=Expo%20SDK&logo=expo)](package.json)
+[![React Native](https://img.shields.io/github/package-json/dependency-version/raviseta/edgefit/react-native?label=React%20Native&logo=react)](package.json)
+[![TypeScript](https://img.shields.io/github/package-json/dependency-version/raviseta/edgefit/dev/typescript?label=TypeScript&logo=typescript)](package.json)
+
 A privacy-first fitness dashboard for iOS, built with React Native, Expo and TypeScript.
 EdgeFit reads activity data from Apple Health, processes it **on the device**, stores
 only processed daily summaries **on the device**, and generates simple, explainable
