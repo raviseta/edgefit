@@ -1,5 +1,6 @@
 # EdgeFit
 
+[![CI](https://github.com/raviseta/edgefit/actions/workflows/ci.yml/badge.svg)](https://github.com/raviseta/edgefit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/github/license/raviseta/edgefit)](LICENSE)
 [![Platform: iOS](https://img.shields.io/badge/platform-iOS-lightgrey?logo=apple)](#getting-started)
 [![Expo SDK](https://img.shields.io/github/package-json/dependency-version/raviseta/edgefit/expo?label=Expo%20SDK&logo=expo)](package.json)
@@ -75,7 +76,8 @@ Scenarios: `normal`, `high`, `low`, `empty`, `missingMetrics`, `multipleWorkouts
 npm run verify
 ```
 
-Runs `tsc --noEmit`, ESLint and the Jest suite (unit + component tests). Tests use the
+Runs `tsc --noEmit`, ESLint and the Jest suite (unit + component tests). The same checks
+run in GitHub Actions on every push and pull request ([`ci.yml`](.github/workflows/ci.yml)). Tests use the
 mock health provider and Node's built-in SQLite, so they never depend on live HealthKit
 data or a device.
 
