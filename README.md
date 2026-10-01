@@ -83,10 +83,11 @@ data or a device.
 
 ### iOS simulator build on CI (optional)
 
-On pushes to `main` (and manual runs), CI also builds the iOS app for the Simulator with
+CI can also build the iOS app for the Simulator with
 [EAS Build](https://docs.expo.dev/build/introduction/), using the `simulator` profile in
-[`eas.json`](eas.json). Simulator builds don't need an Apple Developer account. The job is
-skipped, with a warning, until it's set up:
+[`eas.json`](eas.json). It runs only when started by hand (Actions → CI → Run workflow), so
+it doesn't use EAS build quota on every push. Simulator builds don't need an Apple
+Developer account. Until it's set up, a manual run skips the build with a warning:
 
 1. Log in and link the project to your Expo account. This adds the EAS project ID to `app.json`; commit that change.
 
@@ -107,7 +108,7 @@ skipped, with a warning, until it's set up:
 3. Create a personal access token at expo.dev → Account settings → Access tokens, and add it
    to the GitHub repo as an Actions secret named `EXPO_TOKEN`.
 
-Each run uses your EAS build quota. EAS Build only compiles the app; it adds nothing to the
+Each manual run uses one EAS build from your quota. EAS Build only compiles the app; it adds nothing to the
 app at runtime, so the privacy model above is unchanged.
 
 ## Architecture
