@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -37,3 +38,47 @@ jobs:
       # Uses the mock health provider; no HealthKit or device needed.
       - name: Test
         run: npm test -- --ci
+
+  ios-simulator-build:
+    name: iOS simulator build (EAS)
+    needs: verify
+    # Uses EAS build quota, so only main and manual runs build; pull requests don't.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Check for Expo token
+        id: token
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::warning title=EAS build skipped::Add an EXPO_TOKEN repository secret to enable the iOS simulator build."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.token.outputs.available == 'true'
+        uses: actions/checkout@v7
+
+      - if: steps.token.outputs.available == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - if: steps.token.outputs.available == 'true'
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - if: steps.token.outputs.available == 'true'
+        run: npm ci
+
+      # Waits for the cloud build so a failed native build fails CI. Simulator builds need no
+      # Apple credentials; the result is downloadable from the EAS dashboard.
+      - if: steps.token.outputs.available == 'true'
+        name: Build for iOS Simulator
+        run: eas build --platform ios --profile simulator --non-interactive
