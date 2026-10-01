@@ -210,3 +210,7 @@ deterministic baseline to evaluate a model against.
 Accounts, backend, cloud sync, social features, notifications, chat assistants,
 nutrition, workout recording, Apple Watch app, medical recommendations, ML training, and
 production Health Connect support.
+
+## License
+
+[MIT](LICENSE) © 2026 Ravi Seta
