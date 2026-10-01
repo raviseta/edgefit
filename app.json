@@ -1,15 +1,21 @@
 {
   "expo": {
-    "name": "edgefit-tmp",
-    "slug": "edgefit-tmp",
-    "version": "1.0.0",
+    "name": "EdgeFit",
+    "slug": "edgefit",
+    "scheme": "edgefit",
+    "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.edgefit.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "dev.edgefit.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -18,8 +24,20 @@
       },
       "predictiveBackGestureEnabled": false
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "EdgeFit reads your steps, active energy, exercise minutes and workouts to calculate activity summaries on this device. Your health data is not uploaded anywhere.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }
