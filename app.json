@@ -12,12 +12,13 @@
       "bundleIdentifier": "dev.edgefit.app",
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "U2QAR2859A"
     },
     "android": {
       "package": "dev.edgefit.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#6100ED",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
