@@ -6,6 +6,7 @@ import { formatDayLabel, formatDuration, formatEnergy, formatTime } from '@/lib/
 import type { ActivitySnapshot } from '@/services/ActivityService';
 import { WORKOUT_SYNC_DAYS } from '@/services/SyncService';
 import { Card, Screen, SectionTitle } from '../components/primitives';
+import { IconChip, type IconName } from '../components/visuals';
 import { SnapshotNotices } from '../components/SnapshotNotices';
 import { EmptyState, ErrorState, LoadingState, PermissionDeniedState } from '../components/StateViews';
 import { useActivitySnapshot } from '../hooks';
@@ -57,6 +58,14 @@ export function WorkoutsContent({ snapshot, now }: { snapshot: ActivitySnapshot;
   );
 }
 
+function workoutIcon(type: string): IconName {
+  const t = type.toLowerCase();
+  if (t.includes('cycl') || t.includes('bik')) return 'bike';
+  if (t.includes('strength') || t.includes('weight') || t.includes('training')) return 'dumbbell';
+  if (t.includes('walk') || t.includes('hik')) return 'steps';
+  return 'pulse';
+}
+
 function WorkoutRow({ workout, now, unit, first }: { workout: Workout; now: Date; unit: EnergyUnit; first: boolean }) {
   const { colors } = useTheme();
   const start = new Date(workout.startDate);
@@ -67,16 +76,20 @@ function WorkoutRow({ workout, now, unit, first }: { workout: Workout; now: Date
       testID={`workout-${workout.id}`}
       style={[styles.row, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}
     >
-      <Text style={[typography.headline, { color: colors.text }]}>{workout.type}</Text>
-      <Text style={[typography.caption, { color: colors.textMuted }]}>
-        {formatDayLabel(toDateKey(start), now)} · {formatTime(start)}
-      </Text>
-      <Text style={[typography.body, { color: colors.text }]}>{details.join(' · ')}</Text>
+      <IconChip name={workoutIcon(workout.type)} color={colors.metricWorkouts} background={colors.metricWorkoutsSoft} size={44} />
+      <View style={styles.rowText}>
+        <Text style={[typography.headline, { color: colors.text }]}>{workout.type}</Text>
+        <Text style={[typography.caption, { color: colors.textMuted }]}>
+          {formatDayLabel(toDateKey(start), now)} · {formatTime(start)}
+        </Text>
+        <Text style={[typography.body, { color: colors.text }]}>{details.join(' · ')}</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   listCard: { paddingVertical: 0 },
-  row: { paddingVertical: spacing.md, gap: 2 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, gap: spacing.md },
+  rowText: { flex: 1, gap: 2 },
 });

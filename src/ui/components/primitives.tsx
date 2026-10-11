@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { radius, spacing, typography, useTheme } from '../theme';
 
@@ -32,10 +32,13 @@ export function Screen({
   );
 }
 
-export function Card({ children, style, testID }: { children: ReactNode; style?: ViewStyle; testID?: string }) {
-  const { colors } = useTheme();
+export function Card({ children, style, testID }: { children: ReactNode; style?: StyleProp<ViewStyle>; testID?: string }) {
+  const { colors, isDark } = useTheme();
+  const depth = isDark
+    ? { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border }
+    : { shadowColor: colors.shadow, shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } };
   return (
-    <View testID={testID} style={[styles.card, { backgroundColor: colors.surface }, style]}>
+    <View testID={testID} style={[styles.card, depth, { backgroundColor: colors.surface }, style]}>
       {children}
     </View>
   );
@@ -84,12 +87,12 @@ export function Button({
 }
 
 const styles = StyleSheet.create({
-  screenContent: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.md },
-  card: { borderRadius: radius.lg, padding: spacing.lg },
-  sectionTitle: { marginTop: spacing.md, marginLeft: spacing.xs },
+  screenContent: { padding: spacing.lg, paddingBottom: spacing.xxl * 2, gap: spacing.md },
+  card: { borderRadius: radius.xl, padding: spacing.lg },
+  sectionTitle: { marginTop: spacing.lg, marginLeft: spacing.xs },
   button: {
     minHeight: 50,
-    borderRadius: radius.md,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',

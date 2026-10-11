@@ -130,7 +130,7 @@ describe('OnboardingScreen', () => {
     expect(screen.getByText('Private by design')).toBeTruthy();
     await fireEvent.press(screen.getByTestId('button-next'));
     expect(screen.getByTestId('onboarding-permissions')).toBeTruthy();
-    expect(screen.getByText('• Steps')).toBeTruthy();
+    expect(screen.getByText('Steps')).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('button-allow-health'));
     await waitFor(async () =>

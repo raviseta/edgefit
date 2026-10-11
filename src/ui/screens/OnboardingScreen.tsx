@@ -5,10 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { HEALTH_DATA_TYPES } from '@/health/HealthService';
 import { useServices } from '@/services/ServicesProvider';
 import { Button, Card } from '../components/primitives';
+import { Icon, IconChip, type IconName } from '../components/visuals';
 import { useRequestHealthAccess, useUpdateSettings } from '../hooks';
-import { spacing, typography, useTheme } from '../theme';
+import { radius, spacing, typography, useTheme } from '../theme';
 
 const STEPS = ['welcome', 'privacy', 'permissions'] as const;
+const STEP_ICONS: Record<(typeof STEPS)[number], IconName> = { welcome: 'pulse', privacy: 'shield', permissions: 'heart' };
 
 export function OnboardingScreen() {
   const [step, setStep] = useState(0);
@@ -18,16 +20,30 @@ export function OnboardingScreen() {
   const requestAccess = useRequestHealthAccess();
   const isDemo = health.provider === 'mock';
   const busy = update.isPending || requestAccess.isPending;
+  const current = STEPS[step] ?? STEPS[0];
 
   const finish = () => update.mutate({ onboardingCompleted: true });
   const allow = () => requestAccess.mutate(undefined, { onSettled: finish });
   const skip = () => update.mutate({ onboardingCompleted: true, healthDataEnabled: false });
 
-  const current = STEPS[step];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.heroRow}>
+          <IconChip name={STEP_ICONS[current]} size={72} color={colors.accent} background={colors.accentSoft} />
+          <View style={styles.dots} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {STEPS.map((s, i) => (
+              <View
+                key={s}
+                style={[
+                  styles.dot,
+                  { backgroundColor: i === step ? colors.accent : colors.surfaceMuted, width: i === step ? 24 : 8 },
+                ]}
+              />
+            ))}
+          </View>
+        </View>
         <Text style={[typography.overline, { color: colors.accent }]}>
           Step {step + 1} of {STEPS.length}
         </Text>
@@ -67,9 +83,10 @@ export function OnboardingScreen() {
             </Text>
             <Card>
               {HEALTH_DATA_TYPES.map((t) => (
-                <Text key={t.key} style={[typography.body, styles.listItem, { color: colors.text }]}>
-                  • {t.label}
-                </Text>
+                <View key={t.key} style={styles.listItem}>
+                  <Icon name="check" size={18} color={colors.accent} strokeWidth={2.5} />
+                  <Text style={[typography.body, { color: colors.text }]}>{t.label}</Text>
+                </View>
               ))}
             </Card>
             {!isDemo ? (
@@ -109,7 +126,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: spacing.xl, gap: spacing.lg },
   section: { gap: spacing.md },
-  hero: { fontSize: 32, fontWeight: '700', marginTop: spacing.sm },
-  listItem: { paddingVertical: 2 },
+  hero: { fontSize: 32, fontWeight: '800', marginTop: spacing.sm, letterSpacing: -0.5 },
+  listItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xs },
+  dots: { flexDirection: 'row', gap: spacing.xs, alignItems: 'center' },
+  dot: { height: 8, borderRadius: radius.pill },
+  heroRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   actions: { padding: spacing.xl, paddingTop: spacing.sm, gap: spacing.md },
 });

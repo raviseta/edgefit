@@ -25,8 +25,8 @@ export function DashboardScreen({ now = () => new Date() }: { now?: () => Date }
   return (
     <Screen testID="dashboard" refreshing={query.isRefetching} onRefresh={() => query.refetch()}>
       <View style={styles.header}>
-        <Text style={[typography.title, { color: colors.text }]}>{greeting(now())} 👋</Text>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
+        <Text style={[typography.hero, { color: colors.text }]}>{greeting(now())} 👋</Text>
+        <Text style={[typography.body, { color: colors.textMuted }]}>
           {now().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </Text>
       </View>
@@ -57,22 +57,24 @@ export function DashboardContent({ snapshot }: { snapshot: ActivitySnapshot }) {
         />
       ) : (
         <>
+          <ScoreCard summary={today} />
           <MetricGrid>
-            <MetricCard testID="metric-steps" label="Steps" value={formatMetric(today.steps)} />
+            <MetricCard kind="steps" testID="metric-steps" label="Steps" value={formatMetric(today.steps)} />
             <MetricCard
+              kind="energy"
               testID="metric-calories"
               label="Active Energy"
               value={formatEnergyValue(today.activeCalories, settings.energyUnit)}
               unit={settings.energyUnit}
             />
             <MetricCard
+              kind="time"
               testID="metric-minutes"
               label="Active Time"
               value={today.activeMinutes === null ? EMPTY_VALUE : formatDuration(today.activeMinutes)}
             />
-            <MetricCard testID="metric-workouts" label="Workouts" value={String(today.workoutCount)} />
+            <MetricCard kind="workouts" testID="metric-workouts" label="Workouts" value={String(today.workoutCount)} />
           </MetricGrid>
-          <ScoreCard summary={today} />
         </>
       )}
       {insight ? <InsightCard insight={insight} /> : null}
