@@ -12,7 +12,7 @@ describe('DashboardScreen', () => {
     // First paint happens before the async snapshot resolves.
     expect(await screen.findByTestId('dashboard')).toBeTruthy();
 
-    expect(screen.getByText('Good evening 👋')).toBeTruthy();
+    expect(screen.getByText('Good evening')).toBeTruthy();
     expect(screen.getByLabelText('Steps: 6,420')).toBeTruthy();
     expect(screen.getByLabelText('Active Energy: 296 kcal')).toBeTruthy();
     expect(screen.getByLabelText('Active Time: 34 min')).toBeTruthy();

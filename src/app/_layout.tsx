@@ -1,4 +1,7 @@
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Montserrat_500Medium, Montserrat_700Bold, Montserrat_800ExtraBold } from '@expo-google-fonts/montserrat';
+import { Poppins_400Regular, Poppins_500Medium, Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -22,12 +25,26 @@ const createServices = async () =>
 export default function RootLayout() {
   const { colors, isDark } = useTheme();
   const base = isDark ? DarkTheme : DefaultTheme;
+  // Render with system-font fallbacks if loading fails rather than blocking the app.
+  const [fontsLoaded, fontError] = useFonts({
+    Montserrat_500Medium,
+    Montserrat_700Bold,
+    Montserrat_800ExtraBold,
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+  });
 
   // Refresh stale data when the app returns to the foreground.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => focusManager.setFocused(state === 'active'));
     return () => sub.remove();
   }, []);
+
+  if (!fontsLoaded && !fontError) {
+    return <View style={[styles.center, { backgroundColor: colors.background }]} />;
+  }
 
   return (
     <ThemeProvider

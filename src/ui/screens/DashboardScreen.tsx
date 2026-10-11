@@ -25,7 +25,7 @@ export function DashboardScreen({ now = () => new Date() }: { now?: () => Date }
   return (
     <Screen testID="dashboard" refreshing={query.isRefetching} onRefresh={() => query.refetch()}>
       <View style={styles.header}>
-        <Text style={[typography.hero, { color: colors.text }]}>{greeting(now())} 👋</Text>
+        <Text style={[typography.hero, { color: colors.text }]}>{greeting(now())}</Text>
         <Text style={[typography.body, { color: colors.textMuted }]}>
           {now().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </Text>
