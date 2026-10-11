@@ -47,17 +47,57 @@ const ICONS = {
 
 export type IconName = keyof typeof ICONS;
 
-export function Icon({ name, size = 20, color, strokeWidth = 2 }: { name: IconName; size?: number; color: string; strokeWidth?: number }) {
+/** Closed shapes that take a soft tint of the icon colour (duotone), by path index. */
+const FILLED: Partial<Record<IconName, readonly number[]>> = {
+  info: [0],
+  alert: [0],
+  energy: [0],
+  clock: [0],
+  bike: [0, 1],
+  bulb: [2],
+  shield: [0],
+  lock: [0],
+  heart: [0],
+};
+const FILL_OPACITY = 0.22;
+
+export function Icon({
+  name,
+  size = 20,
+  color,
+  strokeWidth = 2,
+  duotone = true,
+}: {
+  name: IconName;
+  size?: number;
+  color: string;
+  strokeWidth?: number;
+  /** Tint closed shapes with the icon colour at low opacity. */
+  duotone?: boolean;
+}) {
+  const filled: readonly number[] = duotone ? (FILLED[name] ?? []) : [];
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" accessibilityElementsHidden importantForAccessibility="no">
-      {ICONS[name].map((d) => (
-        <Path key={d} d={d} stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
-      ))}
+      {ICONS[name].map((d, i) => {
+        const fill = filled.includes(i);
+        return (
+          <Path
+            key={d}
+            d={d}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill={fill ? color : 'none'}
+            fillOpacity={fill ? FILL_OPACITY : undefined}
+          />
+        );
+      })}
     </Svg>
   );
 }
 
-/** Rounded tile holding an icon, tinted with the metric's color. */
+/** Round badge holding an icon, tinted with the metric's color. */
 export function IconChip({
   name,
   color,
@@ -74,7 +114,7 @@ export function IconChip({
       style={{
         width: size,
         height: size,
-        borderRadius: size * 0.32,
+        borderRadius: size / 2,
         backgroundColor: background,
         alignItems: 'center',
         justifyContent: 'center',
