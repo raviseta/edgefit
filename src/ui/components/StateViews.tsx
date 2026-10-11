@@ -117,7 +117,7 @@ export function DemoDataBanner() {
   return (
     <Banner
       testID="banner-demo-data"
-      shortMessage="Demo data · sample activity, not from Apple Health"
+      shortMessage="Demo data · not from Apple Health"
       message="Demo data — EdgeFit is showing built-in sample activity, not data from Apple Health. No real health data is being read."
     />
   );

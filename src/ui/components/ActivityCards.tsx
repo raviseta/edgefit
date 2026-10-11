@@ -71,8 +71,8 @@ export function ScoreCard({ summary }: { summary: DailySummary }) {
           accessibilityLabel={score ? `Activity score ${score.total} out of 100` : 'Activity score unavailable'}
           style={styles.heroRow}
         >
-          <ProgressRing progress={total / 100} size={112} strokeWidth={11} color={colors.onHero} trackColor="rgba(255,255,255,0.25)">
-            <Text style={[typography.score, { color: colors.onHero }]}>{score ? score.total : EMPTY_VALUE}</Text>
+          <ProgressRing progress={total / 100} size={116} strokeWidth={7} color={colors.heroRing} trackColor="rgba(255,255,255,0.14)">
+            <Text style={[typography.score, { color: colors.onHero }]} maxFontSizeMultiplier={1.2}>{score ? score.total : EMPTY_VALUE}</Text>
           </ProgressRing>
           <View style={styles.heroText}>
             <Text style={[typography.overline, { color: colors.onHero, opacity: 0.8 }]}>Activity Score</Text>
@@ -129,7 +129,7 @@ function BreakdownRow({ label, value, max }: { label: string; value: number; max
 export function InsightCard({ insight }: { insight: ActivityInsight }) {
   const { colors } = useTheme();
   return (
-    <Card testID={`insight-${insight.type}`} style={[styles.insight, { backgroundColor: colors.accentSoft }]}>
+    <Card testID={`insight-${insight.type}`} style={[styles.insight, { backgroundColor: colors.accentSoft, borderColor: `${colors.accent}44` }]}>
       <IconChip name="bulb" color={colors.accent} background={colors.surface} />
       <View style={styles.insightText}>
         <Text style={[typography.overline, { color: colors.accent }]}>Insight</Text>
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   metricCard: { flexBasis: '47%', flexGrow: 1 },
   metricValue: { marginTop: spacing.md },
-  hero: { borderRadius: radius.xl, overflow: 'hidden' },
+  hero: { borderRadius: radius.xl, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.14)' },
   heroBody: { padding: spacing.xl },
   heroRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
   heroText: { flex: 1, gap: 2 },

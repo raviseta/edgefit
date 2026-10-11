@@ -1,7 +1,15 @@
+import { useId } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
-import { radius } from '../theme';
+
+/** Mixes a `#RRGGBB` color toward white by `t` (0–1). */
+export function lighten(hex: string, t: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = (c: number) => Math.round(c + (255 - c) * t);
+  const out = (mix((n >> 16) & 255) << 16) | (mix((n >> 8) & 255) << 8) | mix(n & 255);
+  return `#${out.toString(16).padStart(6, '0')}`;
+}
 
 /** Feather-style 24×24 stroke icons, drawn with react-native-svg so no icon font is needed. */
 const ICONS = {
@@ -93,33 +101,58 @@ export function ProgressRing({
   trackColor: string;
   children?: React.ReactNode;
 }) {
-  const r = (size - strokeWidth) / 2;
+  // Radius leaves room for the glow layer (2.4× stroke) so it isn't clipped by the SVG bounds.
+  const r = (size - strokeWidth * 2.4) / 2;
   const c = 2 * Math.PI * r;
   const clamped = Math.max(0, Math.min(1, progress));
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={trackColor} strokeWidth={strokeWidth} fill="none" />
-        <Circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={`${c * clamped} ${c}`}
-          rotation={-90}
-          origin={`${size / 2}, ${size / 2}`}
-        />
+        {clamped > 0 ? (
+          <>
+            <Circle
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              stroke={color}
+              strokeWidth={strokeWidth * 2.4}
+              strokeOpacity={0.12}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${c * clamped} ${c}`}
+              rotation={-90}
+              origin={`${size / 2}, ${size / 2}`}
+            />
+            <Circle
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              stroke={color}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${c * clamped} ${c}`}
+              rotation={-90}
+              origin={`${size / 2}, ${size / 2}`}
+            />
+            <Circle
+              cx={size / 2 + r * Math.cos(clamped * 2 * Math.PI - Math.PI / 2)}
+              cy={size / 2 + r * Math.sin(clamped * 2 * Math.PI - Math.PI / 2)}
+              r={strokeWidth * 0.9}
+              fill={color}
+            />
+          </>
+        ) : null}
       </Svg>
       {children}
     </View>
   );
 }
 
-/** Absolutely-positioned diagonal gradient; place as the first child of a `overflow: hidden` container. */
-export function GradientBackground({ from, to, id = 'g' }: { from: string; to: string; id?: string }) {
+/** Absolutely-positioned diagonal gradient; place as the first child of an `overflow: hidden` rounded container. */
+export function GradientBackground({ from, to }: { from: string; to: string }) {
+  const id = `g${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   return (
     <Svg style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} width="100%" height="100%">
       <Defs>
@@ -128,7 +161,7 @@ export function GradientBackground({ from, to, id = 'g' }: { from: string; to: s
           <Stop offset="1" stopColor={to} />
         </LinearGradient>
       </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" rx={radius.xl} fill={`url(#${id})`} />
+      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
     </Svg>
   );
 }

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
-import { radius, spacing, typography, useTheme } from '../theme';
+import { fonts, radius, spacing, typography, useTheme } from '../theme';
 import { Icon, IconChip, type IconName } from './visuals';
 
 export function RowGroup({ children, footer }: { children: ReactNode; footer?: string }) {
@@ -135,7 +135,7 @@ export function SegmentedRow<T extends string>({
                 onPress={() => onChange(option)}
                 style={[styles.segment, selected && { backgroundColor: colors.surface }]}
               >
-                <Text style={[typography.caption, { color: selected ? colors.accent : colors.textMuted, fontWeight: selected ? '700' : '500' }]}>{option}</Text>
+                <Text style={[typography.caption, { color: selected ? colors.accent : colors.textMuted, fontFamily: selected ? fonts.bodySemibold : fonts.bodyMedium }]}>{option}</Text>
               </Pressable>
             );
           })}
