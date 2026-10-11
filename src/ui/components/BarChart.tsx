@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
 
+
 import { spacing, typography, useTheme } from '../theme';
 
 export interface BarDatum {
@@ -56,15 +57,26 @@ export function BarChart({
       <View style={{ height: HEIGHT }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
         {width > 0 ? (
           <Svg width={width} height={HEIGHT}>
+            {[0, 0.5, 1].map((f) => (
+              <Line
+                key={f}
+                x1={0}
+                x2={width}
+                y1={VALUE_SPACE + plotHeight - f * plotHeight}
+                y2={VALUE_SPACE + plotHeight - f * plotHeight}
+                stroke={colors.border}
+                strokeWidth={f === 0 ? 1.5 : 1}
+              />
+            ))}
             {referenceValue ? (
               <Line
                 x1={0}
                 x2={width}
                 y1={y(referenceValue)}
                 y2={y(referenceValue)}
-                stroke={colors.textMuted}
+                stroke={colors.accent}
                 strokeDasharray="4 4"
-                strokeWidth={1}
+                strokeWidth={1.5}
               />
             ) : null}
             {data.map((d, i) => {
@@ -91,8 +103,21 @@ export function BarChart({
                       height={Math.max(2, baseline - y(d.value))}
                       rx={6}
                       fill={d.highlight ? colors.chartBarToday : colors.chartBar}
+                      opacity={d.highlight ? 1 : 0.55}
                     />
                   )}
+                  {d.highlight && d.value !== null ? (
+                    <SvgText
+                      x={cx}
+                      y={Math.max(12, y(d.value) - 6)}
+                      fontSize={12}
+                      fontWeight="700"
+                      fill={colors.text}
+                      textAnchor="middle"
+                    >
+                      {formatValue(d.value)}
+                    </SvgText>
+                  ) : null}
                   <SvgText
                     x={cx}
                     y={HEIGHT - 6}
@@ -110,9 +135,12 @@ export function BarChart({
         ) : null}
       </View>
       {referenceValue && referenceLabel ? (
-        <Text style={[typography.caption, styles.legend, { color: colors.textMuted }]}>
-          - - {referenceLabel}: {formatValue(referenceValue)}
-        </Text>
+        <View style={styles.legendRow}>
+          <View style={[styles.swatch, { borderColor: colors.accent }]} />
+          <Text style={[typography.caption, { color: colors.textMuted }]}>
+            {referenceLabel}: {formatValue(referenceValue)}
+          </Text>
+        </View>
       ) : null}
       {values.length < data.length ? (
         <Text style={[typography.caption, styles.legend, { color: colors.textMuted }]}>
@@ -125,4 +153,6 @@ export function BarChart({
 
 const styles = StyleSheet.create({
   legend: { marginTop: spacing.xs },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.sm },
+  swatch: { width: 18, borderTopWidth: 2, borderStyle: 'dashed' },
 });

@@ -9,7 +9,7 @@ import { Card, Screen, SectionTitle } from '../components/primitives';
 import { SnapshotNotices } from '../components/SnapshotNotices';
 import { EmptyState, ErrorState, LoadingState, PermissionDeniedState } from '../components/StateViews';
 import { useActivitySnapshot } from '../hooks';
-import { spacing, typography, useTheme } from '../theme';
+import { radius, spacing, typography, useTheme } from '../theme';
 
 export function ActivityScreen({ now = () => new Date() }: { now?: () => Date }) {
   const query = useActivitySnapshot();
@@ -134,14 +134,16 @@ function DayRow({
         )}
       </View>
       <View
-        style={styles.scoreBadge}
+        style={[
+          styles.scoreBadge,
+          { backgroundColor: s?.activityScore != null ? colors.accentSoft : colors.surfaceMuted },
+        ]}
         accessible
         accessibilityLabel={s?.activityScore != null ? `Score ${s.activityScore}` : 'No score'}
       >
-        <Text style={[typography.headline, { color: s?.activityScore != null ? colors.text : colors.textMuted }]}>
+        <Text style={[typography.headline, { color: s?.activityScore != null ? colors.accent : colors.textMuted }]}>
           {s?.activityScore ?? EMPTY_VALUE}
         </Text>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>score</Text>
       </View>
     </View>
   );
@@ -155,5 +157,12 @@ const styles = StyleSheet.create({
   listCard: { paddingVertical: 0 },
   dayRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, gap: spacing.md },
   dayMain: { flex: 1, gap: 2 },
-  scoreBadge: { alignItems: 'flex-end', minWidth: 48 },
+  scoreBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 48,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+  },
 });

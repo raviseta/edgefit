@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { radius, spacing, typography, useTheme } from '../theme';
+import { Icon, IconChip, type IconName } from './visuals';
 
 export function RowGroup({ children, footer }: { children: ReactNode; footer?: string }) {
   const { colors } = useTheme();
@@ -20,6 +21,7 @@ export function Row({
   destructive,
   first,
   accessory,
+  icon,
   testID,
 }: {
   label: string;
@@ -28,15 +30,24 @@ export function Row({
   destructive?: boolean;
   first?: boolean;
   accessory?: ReactNode;
+  icon?: IconName;
   testID?: string;
 }) {
   const { colors } = useTheme();
   const content = (
     <View style={[styles.row, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+      {icon ? (
+        <IconChip
+          name={icon}
+          size={30}
+          color={destructive ? colors.danger : colors.accent}
+          background={destructive ? colors.warningMuted : colors.accentSoft}
+        />
+      ) : null}
       <Text style={[typography.body, styles.label, { color: destructive ? colors.danger : colors.text }]}>{label}</Text>
       {value ? <Text style={[typography.body, { color: colors.textMuted }]}>{value}</Text> : null}
       {accessory}
-      {onPress && !destructive ? <Text style={[typography.headline, { color: colors.textMuted }]}>›</Text> : null}
+      {onPress && !destructive ? <Icon name="chevron" size={18} color={colors.textMuted} /> : null}
     </View>
   );
   if (!onPress) {
@@ -59,6 +70,7 @@ export function SwitchRow({
   onValueChange,
   disabled,
   first,
+  icon,
   testID,
 }: {
   label: string;
@@ -66,6 +78,7 @@ export function SwitchRow({
   onValueChange: (value: boolean) => void;
   disabled?: boolean;
   first?: boolean;
+  icon?: IconName;
   testID?: string;
 }) {
   const { colors } = useTheme();
@@ -73,6 +86,7 @@ export function SwitchRow({
     <Row
       label={label}
       first={first}
+      icon={icon}
       accessory={
         <Switch
           testID={testID}
@@ -93,18 +107,21 @@ export function SegmentedRow<T extends string>({
   value,
   onChange,
   first,
+  icon,
 }: {
   label: string;
   options: readonly T[];
   value: T;
   onChange: (value: T) => void;
   first?: boolean;
+  icon?: IconName;
 }) {
   const { colors } = useTheme();
   return (
     <Row
       label={label}
       first={first}
+      icon={icon}
       accessory={
         <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[styles.segmented, { backgroundColor: colors.surfaceMuted }]}>
           {options.map((option) => {
@@ -118,7 +135,7 @@ export function SegmentedRow<T extends string>({
                 onPress={() => onChange(option)}
                 style={[styles.segment, selected && { backgroundColor: colors.surface }]}
               >
-                <Text style={[typography.caption, { color: colors.text, fontWeight: selected ? '600' : '400' }]}>{option}</Text>
+                <Text style={[typography.caption, { color: selected ? colors.accent : colors.textMuted, fontWeight: selected ? '700' : '500' }]}>{option}</Text>
               </Pressable>
             );
           })}
@@ -129,10 +146,10 @@ export function SegmentedRow<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  group: { borderRadius: radius.md, paddingHorizontal: spacing.lg, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: 48, paddingVertical: spacing.sm, gap: spacing.sm },
+  group: { borderRadius: radius.lg, paddingHorizontal: spacing.lg, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingVertical: spacing.sm, gap: spacing.md },
   label: { flex: 1 },
   footer: { marginTop: spacing.xs, marginHorizontal: spacing.lg },
-  segmented: { flexDirection: 'row', borderRadius: 8, padding: 2 },
-  segment: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: 6 },
+  segmented: { flexDirection: 'row', borderRadius: radius.md, padding: 3 },
+  segment: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.sm },
 });
