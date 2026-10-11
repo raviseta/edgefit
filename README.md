@@ -16,12 +16,12 @@ This is the MVP of a longer-term Edge-AI research project: the architecture is s
 a deterministic rule engine can later be replaced by an on-device ML model without
 touching the UI or data layers.
 
-| Dashboard | Activity | Workouts |
-| --- | --- | --- |
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Activity](docs/screenshots/activity.png) | ![Workouts](docs/screenshots/workouts.png) |
+| Dashboard | Activity | Workouts | Settings |
+| --- | --- | --- | --- |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Activity](docs/screenshots/activity.png) | ![Workouts](docs/screenshots/workouts.png) | ![Settings](docs/screenshots/settings.png) |
 
-The three screenshots above use the built-in **demo data** (`normal` scenario), which is
-why they show the "Demo data" banner. The two below come from **real HealthKit** on an iOS
+The four screenshots above use the built-in **demo data** (`normal` scenario); the app
+labels it with a "Demo data" banner and the "Use demo health data" setting. The two below come from **real HealthKit** on an iOS
 26 simulator with data entered in the Health app: 8,420 steps and 420 kcal (shown in kJ).
 Exercise minutes can't be entered by hand, so Active Time correctly shows "—".
 
