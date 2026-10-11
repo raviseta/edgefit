@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
 
 
-import { spacing, typography, useTheme } from '../theme';
+import { fonts, spacing, typography, useTheme } from '../theme';
 
 export interface BarDatum {
   key: string;
@@ -96,6 +96,18 @@ export function BarChart({
                       strokeDasharray="3 3"
                     />
                   ) : (
+                    <>
+                    {d.highlight ? (
+                      <Rect
+                        x={x - 4}
+                        y={y(d.value) - 4}
+                        width={barWidth + 8}
+                        height={Math.max(2, baseline - y(d.value)) + 8}
+                        rx={10}
+                        fill={colors.chartBarToday}
+                        opacity={0.16}
+                      />
+                    ) : null}
                     <Rect
                       x={x}
                       y={y(d.value)}
@@ -103,15 +115,16 @@ export function BarChart({
                       height={Math.max(2, baseline - y(d.value))}
                       rx={6}
                       fill={d.highlight ? colors.chartBarToday : colors.chartBar}
-                      opacity={d.highlight ? 1 : 0.55}
+                      opacity={d.highlight ? 1 : 0.5}
                     />
+                    </>
                   )}
                   {d.highlight && d.value !== null ? (
                     <SvgText
                       x={cx}
                       y={Math.max(12, y(d.value) - 6)}
                       fontSize={12}
-                      fontWeight="700"
+                      fontFamily={fonts.display}
                       fill={colors.text}
                       textAnchor="middle"
                     >
@@ -121,8 +134,8 @@ export function BarChart({
                   <SvgText
                     x={cx}
                     y={HEIGHT - 6}
-                    fontSize={12}
-                    fontWeight={d.highlight ? '700' : '400'}
+                    fontSize={11}
+                    fontFamily={d.highlight ? fonts.bodySemibold : fonts.body}
                     fill={d.highlight ? colors.text : colors.textMuted}
                     textAnchor="middle"
                   >

@@ -7,7 +7,7 @@ import { useServices } from '@/services/ServicesProvider';
 import { Button, Card } from '../components/primitives';
 import { Icon, IconChip, type IconName } from '../components/visuals';
 import { useRequestHealthAccess, useUpdateSettings } from '../hooks';
-import { radius, spacing, typography, useTheme } from '../theme';
+import { fonts, spacing, typography, useTheme } from '../theme';
 
 const STEPS = ['welcome', 'privacy', 'permissions'] as const;
 const STEP_ICONS: Record<(typeof STEPS)[number], IconName> = { welcome: 'pulse', privacy: 'shield', permissions: 'heart' };
@@ -126,10 +126,10 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: spacing.xl, gap: spacing.lg },
   section: { gap: spacing.md },
-  hero: { fontSize: 32, fontWeight: '800', marginTop: spacing.sm, letterSpacing: -0.5 },
+  hero: { fontFamily: fonts.displayHeavy, fontSize: 28, lineHeight: 34, marginTop: spacing.sm, letterSpacing: -0.4 },
   listItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xs },
   dots: { flexDirection: 'row', gap: spacing.xs, alignItems: 'center' },
-  dot: { height: 8, borderRadius: radius.pill },
+  dot: { height: 4, borderRadius: 2 },
   heroRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   actions: { padding: spacing.xl, paddingTop: spacing.sm, gap: spacing.md },
 });

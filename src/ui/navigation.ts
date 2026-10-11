@@ -1,4 +1,4 @@
-import { useTheme } from './theme';
+import { fonts, useTheme } from './theme';
 
 /**
  * Native stack header styling shared by every tab. Standard (inline) titles:
@@ -9,7 +9,7 @@ export function useStackScreenOptions() {
   return {
     headerShadowVisible: false,
     headerStyle: { backgroundColor: colors.background },
-    headerTitleStyle: { color: colors.text },
+    headerTitleStyle: { color: colors.text, fontFamily: fonts.display },
     headerTintColor: colors.accent,
     contentStyle: { backgroundColor: colors.background },
   };
