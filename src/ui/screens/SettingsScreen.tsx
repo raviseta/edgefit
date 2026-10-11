@@ -44,7 +44,7 @@ export function SettingsScreen() {
     <Screen testID="settings">
       <SectionTitle>Privacy</SectionTitle>
       <RowGroup>
-        <Row first label="Privacy Center" onPress={() => router.push('/settings/privacy')} testID="row-privacy" />
+        <Row first icon="shield" label="Privacy Center" onPress={() => router.push('/settings/privacy')} testID="row-privacy" />
       </RowGroup>
 
       <SectionTitle>Health permissions</SectionTitle>
@@ -57,6 +57,7 @@ export function SettingsScreen() {
       >
         <SwitchRow
           first
+          icon="heart"
           testID="switch-health"
           label={isDemo ? 'Use demo health data' : 'Read data from Apple Health'}
           value={s.healthDataEnabled}
@@ -69,12 +70,14 @@ export function SettingsScreen() {
       <RowGroup footer="Insights are generated on this device by simple, transparent rules. Nothing is sent anywhere.">
         <SegmentedRow
           first
+          icon="energy"
           label="Energy units"
           options={ENERGY_UNITS}
           value={s.energyUnit}
           onChange={(energyUnit) => update.mutate({ energyUnit })}
         />
         <SwitchRow
+          icon="bulb"
           testID="switch-insights"
           label="Personalized insights"
           value={s.analyticsEnabled}
@@ -89,7 +92,7 @@ export function SettingsScreen() {
 
       <SectionTitle>About</SectionTitle>
       <RowGroup>
-        <Row first label="About EdgeFit" onPress={() => router.push('/settings/about')} />
+        <Row first icon="info" label="About EdgeFit" onPress={() => router.push('/settings/about')} />
       </RowGroup>
     </Screen>
   );
