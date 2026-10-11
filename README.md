@@ -20,15 +20,6 @@ touching the UI or data layers.
 | --- | --- | --- | --- |
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Activity](docs/screenshots/activity.png) | ![Workouts](docs/screenshots/workouts.png) | ![Settings](docs/screenshots/settings.png) |
 
-The four screenshots above use the built-in **demo data** (`normal` scenario); the app
-labels it with a "Demo data" banner and the "Use demo health data" setting. The two below come from **real HealthKit** on an iOS
-26 simulator with data entered in the Health app: 8,420 steps and 420 kcal (shown in kJ).
-Exercise minutes can't be entered by hand, so Active Time correctly shows "—".
-
-| Dashboard (HealthKit) | Privacy Center (HealthKit) |
-| --- | --- |
-| ![Dashboard with HealthKit data](docs/screenshots/dashboard-healthkit.png) | ![Privacy Center](docs/screenshots/privacy.png) |
-
 ## Features
 
 - **Onboarding** – welcome, privacy explanation, list of data types read, HealthKit
