@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert } from 'react-native';
 
 import type { AppSettings } from '@/domain/models';
@@ -8,6 +8,8 @@ import { useServices } from '@/services/ServicesProvider';
 export const queryKeys = {
   settings: ['settings'] as const,
   snapshot: ['snapshot'] as const,
+  /** Nested under `snapshot` so anything that invalidates the snapshot also refreshes the calendar. */
+  calendar: ['snapshot', 'calendar'] as const,
   permission: ['permission-status'] as const,
 };
 
@@ -20,6 +22,23 @@ export function useSettings() {
 export function useActivitySnapshot() {
   const { activity } = useServices();
   return useQuery({ queryKey: queryKeys.snapshot, queryFn: () => activity.refresh() });
+}
+
+/**
+ * The 30-day calendar. It never syncs by itself: it rides on the activity
+ * snapshot (which syncs exactly as on the other tabs) and re-reads local storage
+ * whenever that snapshot updates, so it always reflects the latest sync.
+ */
+export function useActivityCalendar() {
+  const { activity } = useServices();
+  const snapshot = useActivitySnapshot();
+  const calendar = useQuery({
+    queryKey: [...queryKeys.calendar, snapshot.dataUpdatedAt],
+    queryFn: () => activity.getCalendar(),
+    enabled: snapshot.isSuccess,
+    placeholderData: keepPreviousData,
+  });
+  return { snapshot, calendar };
 }
 
 export function usePermissionStatus() {
