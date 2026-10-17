@@ -50,6 +50,15 @@ export class WorkoutRepository {
     return rows.map(toWorkout);
   }
 
+  /** Workouts that started within [start, end], most recent first, without a row limit. */
+  async listStartedBetween(start: Date, end: Date): Promise<Workout[]> {
+    const rows = await this.db.getAll<WorkoutRow>(
+      'SELECT * FROM workouts WHERE start_date >= ? AND start_date <= ? ORDER BY start_date DESC',
+      [start.toISOString(), end.toISOString()],
+    );
+    return rows.map(toWorkout);
+  }
+
   async deleteBefore(date: Date): Promise<void> {
     await this.db.run('DELETE FROM workouts WHERE start_date < ?', [date.toISOString()]);
   }
