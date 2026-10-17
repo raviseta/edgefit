@@ -16,6 +16,8 @@ export const WORKOUT_SYNC_DAYS = 30;
 /** Retention: processed data older than this is deleted on every sync. */
 export const RETENTION_DAYS = 30;
 
+type QuantityMetric = 'steps' | 'activeCalories' | 'activeMinutes';
+
 export type SyncOutcome =
   | { status: 'synced'; failedMetrics: string[] }
   | { status: 'health-disabled' }
@@ -40,6 +42,12 @@ export class SyncService {
   async sync(): Promise<SyncOutcome> {
     const { health, repositories, intelligence } = this.deps;
     const now = this.deps.now?.() ?? new Date();
+
+    // Retention runs first so it also applies when health reading is off or every query fails.
+    const cutoff = addDays(startOfDay(now), -(RETENTION_DAYS - 1));
+    await repositories.summaries.deleteBefore(toDateKey(cutoff));
+    await repositories.workouts.deleteBefore(cutoff);
+
     const settings = await repositories.settings.get();
 
     if (!settings.healthDataEnabled) {
@@ -61,18 +69,13 @@ export class SyncService {
     ]);
 
     const failedMetrics: string[] = [];
-    const valueOf = (name: string, result: PromiseSettledResult<DailyQuantity[]>): DailyQuantity[] => {
-      if (result.status === 'fulfilled') return result.value;
-      failedMetrics.push(name);
-      logger.warn('health.query_failed', result.reason, { metric: name, provider: health.provider });
-      return [];
-    };
-
-    const activity = buildActivityData(days, {
-      steps: valueOf('steps', steps),
-      activeCalories: valueOf('activeCalories', activeCalories),
-      activeMinutes: valueOf('activeMinutes', activeMinutes),
-    });
+    const quantities = { steps, activeCalories, activeMinutes };
+    for (const [name, result] of Object.entries(quantities)) {
+      if (result.status === 'rejected') {
+        failedMetrics.push(name);
+        logger.warn('health.query_failed', result.reason, { metric: name, provider: health.provider });
+      }
+    }
 
     let workouts = null;
     if (workoutData.status === 'fulfilled') {
@@ -86,16 +89,34 @@ export class SyncService {
       throw new HealthSyncError('All health queries failed');
     }
 
+    // A failed query is not "no data": keep the last saved values for that metric rather than
+    // overwriting them with nulls. Metrics that were read keep their fresh values, gaps included.
+    const cached = failedMetrics.some((m) => m !== 'workouts')
+      ? await repositories.summaries.getRange(days[0]!, days[days.length - 1]!)
+      : [];
+    const valueOf = (metric: QuantityMetric): DailyQuantity[] => {
+      const result = quantities[metric];
+      if (result.status === 'fulfilled') return result.value;
+      return cached.flatMap((s) => {
+        const value = s[metric];
+        return value === null ? [] : [{ date: s.date, value }];
+      });
+    };
+
+    const activity = buildActivityData(days, {
+      steps: valueOf('steps'),
+      activeCalories: valueOf('activeCalories'),
+      activeMinutes: valueOf('activeMinutes'),
+    });
+
     if (workouts) {
       await repositories.workouts.replaceRange(workoutRange.start, workoutRange.end, workouts);
+      // HealthKit also returns workouts that merely overlap the window; don't keep them past retention.
+      await repositories.workouts.deleteBefore(cutoff);
     }
     // Score with whatever workouts are cached if the workout query failed this time.
     const workoutsForScoring = workouts ?? (await repositories.workouts.list());
     await repositories.summaries.upsertMany(buildDailySummaries(activity, workoutsForScoring), now);
-
-    const cutoff = addDays(startOfDay(now), -(RETENTION_DAYS - 1));
-    await repositories.summaries.deleteBefore(toDateKey(cutoff));
-    await repositories.workouts.deleteBefore(cutoff);
 
     const insights = settings.analyticsEnabled ? await intelligence.generateInsights(activity) : [];
     await repositories.insights.replaceAll(insights);

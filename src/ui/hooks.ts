@@ -77,10 +77,10 @@ export function useRequestHealthAccess() {
 }
 
 export function useClearLocalData() {
-  const { repositories } = useServices();
+  const { activity } = useServices();
   const client = useQueryClient();
   return useMutation({
-    mutationFn: () => repositories.clearAll(),
+    mutationFn: () => activity.clearLocalData(),
     onSuccess: () => client.resetQueries(),
     onError: (error) => logger.error('storage.clear_failed', error),
   });

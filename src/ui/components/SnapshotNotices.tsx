@@ -1,6 +1,13 @@
 import type { ActivitySnapshot } from '@/services/ActivityService';
 import { Banner, DemoDataBanner } from './StateViews';
 
+const METRIC_LABELS: Record<string, string> = {
+  steps: 'steps',
+  activeCalories: 'active energy',
+  activeMinutes: 'exercise minutes',
+  workouts: 'workouts',
+};
+
 /** Non-blocking notices shared by the data screens: demo provider, sync problems. */
 export function SnapshotNotices({ snapshot }: { snapshot: ActivitySnapshot }) {
   const { sync, provider } = snapshot;
@@ -18,7 +25,7 @@ export function SnapshotNotices({ snapshot }: { snapshot: ActivitySnapshot }) {
         <Banner
           testID="banner-partial-sync"
           tone="warning"
-          message={`Some data couldn't be read (${sync.failedMetrics.join(', ')}). Other metrics are up to date.`}
+          message={`Some data couldn't be read (${sync.failedMetrics.map((m) => METRIC_LABELS[m] ?? m).join(', ')}). Showing the last values saved on this device for those; everything else is up to date.`}
         />
       ) : null}
       {sync.status === 'unavailable' ? (
