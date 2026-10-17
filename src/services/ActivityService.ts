@@ -27,8 +27,15 @@ export interface ActivitySnapshot {
  * Read model for the UI. A failed health sync is *recoverable*: cached data is
  * still returned along with `sync.status === 'failed'`. A failed database read
  * is not, and propagates so the screen can show an error state.
+ *
+ * Syncs and Clear Local Data run one at a time, so a sync that started before
+ * a clear cannot write health data back afterwards, and overlapping refreshes
+ * (focus refetch + pull-to-refresh) share one sync.
  */
 export class ActivityService {
+  private queue: Promise<unknown> = Promise.resolve();
+  private inFlight: Promise<ActivitySnapshot> | null = null;
+
   constructor(
     private readonly deps: {
       sync: SyncService;
@@ -38,7 +45,27 @@ export class ActivityService {
     },
   ) {}
 
-  async refresh(): Promise<ActivitySnapshot> {
+  refresh(): Promise<ActivitySnapshot> {
+    if (!this.inFlight) {
+      this.inFlight = this.exclusive(() => this.syncAndRead()).finally(() => {
+        this.inFlight = null;
+      });
+    }
+    return this.inFlight;
+  }
+
+  /** Wipes every EdgeFit table once any running sync has finished. Health data itself is untouched. */
+  clearLocalData(): Promise<void> {
+    return this.exclusive(() => this.deps.repositories.clearAll());
+  }
+
+  private exclusive<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(task);
+    this.queue = run.catch(() => undefined);
+    return run;
+  }
+
+  private async syncAndRead(): Promise<ActivitySnapshot> {
     let sync: ActivitySnapshot['sync'];
     try {
       sync = await this.deps.sync.sync();

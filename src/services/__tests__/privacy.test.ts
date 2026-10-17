@@ -34,6 +34,9 @@ describe('privacy guardrails', () => {
     const app = JSON.parse(readFileSync(join(SRC, '..', 'app.json'), 'utf8'));
     const plugin = app.expo.plugins.find((p: unknown) => Array.isArray(p) && p[0] === '@kingstinct/react-native-healthkit');
     expect(plugin[1].NSHealthUpdateUsageDescription).toBe(false);
+    // No background-delivery entitlement and no clinical (health records) access.
+    expect(plugin[1].background).toBe(false);
+    expect(plugin[1]).not.toHaveProperty('access');
     expect(readFileSync(join(SRC, 'health', 'HealthKitService.ts'), 'utf8')).not.toMatch(/toShare|save\w*Sample/);
   });
 });
