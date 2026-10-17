@@ -16,13 +16,15 @@ import { MockHealthService } from './MockHealthService';
  */
 export function createHealthService(): HealthService {
   if (process.env.EXPO_PUBLIC_HEALTH_PROVIDER !== 'mock' && Platform.OS === 'ios') {
-    // Required lazily so non-iOS bundles and tests never load the native module.
-    /* eslint-disable @typescript-eslint/no-require-imports */
-    const { HealthKitService } = require('./HealthKitService') as typeof import('./HealthKitService');
-    const { isHealthDataAvailable } =
-      require('@kingstinct/react-native-healthkit') as typeof import('@kingstinct/react-native-healthkit');
-    /* eslint-enable @typescript-eslint/no-require-imports */
     try {
+      // Required lazily so non-iOS bundles and tests never load the native module. Loading it
+      // throws when the native code is absent (Expo Go, or a build without Nitro), so it must
+      // happen inside the try for that case to fall through to the mock.
+      /* eslint-disable @typescript-eslint/no-require-imports */
+      const { HealthKitService } = require('./HealthKitService') as typeof import('./HealthKitService');
+      const { isHealthDataAvailable } =
+        require('@kingstinct/react-native-healthkit') as typeof import('@kingstinct/react-native-healthkit');
+      /* eslint-enable @typescript-eslint/no-require-imports */
       if (isHealthDataAvailable()) {
         return new HealthKitService();
       }
