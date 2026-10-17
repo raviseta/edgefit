@@ -153,9 +153,11 @@ Insights                 RuleBasedActivityIntelligenceService
 - **Aggregates only.** HealthKit is queried for per-day sums, never raw samples, and only
   those sums are stored. Native workout objects are released after copying the few fields EdgeFit
   shows.
-- **Recoverable failures.** If one metric query fails, the others still sync and a banner
-  names the missing one. If every health query fails, cached data is shown with a
-  warning. Database failures show a retryable error state. The logger records event
+- **Recoverable failures.** If one metric query fails, the others still sync, the failed
+  metric keeps its last saved values (a failed read is not treated as "no data"), and a
+  banner names it. If every health query fails, cached data is shown with a warning.
+  Syncs and Clear Local Data run one at a time, so a sync in progress can't write data
+  back after it has been cleared. Database failures show a retryable error state. The logger records event
   names and error types only, never health values (tested).
 - **Provider fallback.** iOS with HealthKit → `HealthKitService`; otherwise (Android,
   HealthKit unavailable, `EXPO_PUBLIC_HEALTH_PROVIDER=mock`) → `MockHealthService`, with a
@@ -183,7 +185,7 @@ src/
 | --- | --- |
 | What is read? | Steps, active energy, exercise minutes, workouts. Read-only: no HealthKit write permission is requested. |
 | Where is it stored? | An on-device SQLite database in the app sandbox: daily totals, workout summaries, insights, settings. |
-| How long? | Processed data older than 30 days is deleted on every sync. |
+| How long? | Processed data older than 30 days is deleted on every refresh, including when health reading is off or Health can't be read. |
 | Does it leave the device? | Not via EdgeFit. The app code has no network calls and no analytics, ads, crash-reporting or tracking SDKs. A test (`src/services/__tests__/privacy.test.ts`) fails if `fetch`/`XMLHttpRequest`/`WebSocket` appear in app code or such SDKs are added. |
 | How are insights made? | Locally, by fixed rules. Not machine learning, not medical advice. |
 | Can I delete it? | Settings → Clear Local Data wipes every EdgeFit table. Apple Health data is untouched. |

@@ -74,6 +74,20 @@ describe('DashboardScreen', () => {
     expect(screen.getByLabelText('Steps: 6,420')).toBeTruthy();
   });
 
+  it('keeps showing the last saved value when one metric fails, and says so', async () => {
+    const { services, health } = await createTestServices();
+    await services.activity.refresh();
+    jest.spyOn(health, 'getActiveCalories').mockRejectedValue(new Error('down'));
+    await renderWithServices(<DashboardScreen now={testNow} />, services);
+    expect(await screen.findByTestId('banner-partial-sync')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        "Some data couldn't be read (active energy). Showing the last values saved on this device for those; everything else is up to date.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Active Energy: 296 kcal')).toBeTruthy();
+  });
+
   it('respects the energy unit preference', async () => {
     const { services } = await createTestServices({ settings: { energyUnit: 'kJ' } });
     await renderWithServices(<DashboardScreen now={testNow} />, services);

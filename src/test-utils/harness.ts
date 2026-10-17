@@ -13,11 +13,14 @@ export async function createTestServices(
     fixture?: HealthFixture;
     health?: MockHealthServiceOptions;
     settings?: Partial<AppSettings>;
+    /** Clock override for date-boundary tests. Defaults to TEST_NOW. */
+    now?: () => Date;
   } = {},
 ) {
+  const now = options.now ?? testNow;
   const db = new NodeSqliteDatabase();
-  const health = new MockHealthService(options.fixture ?? fixtures.normal, { now: testNow, ...options.health });
-  const services = await createAppServices({ db, health, now: testNow });
+  const health = new MockHealthService(options.fixture ?? fixtures.normal, { now, ...options.health });
+  const services = await createAppServices({ db, health, now });
   await services.repositories.settings.update({
     onboardingCompleted: true,
     healthDataEnabled: true,
