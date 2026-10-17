@@ -106,7 +106,7 @@ export function ScoreCard({ summary }: { summary: DailySummary }) {
   );
 }
 
-function scoreHeadline(total: number | undefined): string {
+export function scoreHeadline(total: number | undefined): string {
   if (total === undefined) return 'Not enough data yet';
   if (total >= 80) return 'Great day';
   if (total >= 50) return 'Solid progress';

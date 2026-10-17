@@ -73,6 +73,6 @@ describe('ActivityService.getCalendar', () => {
     );
     const calendar = await services.activity.getCalendar();
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
-    expect(calendar.summary).toEqual({ totalDays: 30, scoredDays: 0, averageScore: null, best: null });
+    expect(calendar.summary).toEqual({ totalDays: 30, scoredDays: 0, averageScore: null, best: null, streak: 0 });
   });
 });

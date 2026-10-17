@@ -44,6 +44,11 @@ export interface CalendarSummary {
   averageScore: number | null;
   /** Highest valid score; ties go to the most recent day. Null when no day has a score. */
   best: { date: DateKey; score: number } | null;
+  /**
+   * Consecutive days with a valid score, ending today, or ending yesterday while
+   * today has no score yet (today is still in progress, so it can't break a streak).
+   */
+  streak: number;
 }
 
 export function scoreLevel(score: number | null): ScoreLevel {
@@ -94,7 +99,16 @@ export function summarizeCalendar(days: CalendarDay[]): CalendarSummary {
     scoredDays,
     averageScore: scoredDays > 0 ? total / scoredDays : null,
     best,
+    streak: currentStreak(days),
   };
+}
+
+function currentStreak(days: CalendarDay[]): number {
+  let i = days.length - 1;
+  if (i >= 0 && days[i]!.isToday && days[i]!.score === null) i -= 1;
+  let streak = 0;
+  for (; i >= 0 && days[i]!.score !== null; i -= 1) streak += 1;
+  return streak;
 }
 
 /** True when nothing at all is stored for the period: no metrics, scores or workouts. */

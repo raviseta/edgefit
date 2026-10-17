@@ -114,7 +114,7 @@ describe('summarizeCalendar', () => {
 
   it('empty history: no coverage, no average, no best day', () => {
     const days = buildCalendarDays(now, [], []);
-    expect(summarizeCalendar(days)).toEqual({ totalDays: 30, scoredDays: 0, averageScore: null, best: null });
+    expect(summarizeCalendar(days)).toEqual({ totalDays: 30, scoredDays: 0, averageScore: null, best: null, streak: 0 });
     expect(isCalendarEmpty(days)).toBe(true);
   });
 
@@ -151,7 +151,35 @@ describe('summarizeCalendar', () => {
       scoredDays: 1,
       averageScore: 0,
       best: { date: '2026-10-17', score: 0 },
+      streak: 1,
     });
+  });
+
+  it('streak counts consecutive scored days ending today', () => {
+    const days = buildCalendarDays(
+      now,
+      ['2026-10-12', '2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17'].map((d) => summary(d)),
+      [],
+    );
+    expect(summarizeCalendar(days).streak).toBe(4);
+  });
+
+  it('an unscored today (still in progress) does not break the streak; an unscored past day does', () => {
+    const scoredThroughYesterday = buildCalendarDays(now, [summary('2026-10-15'), summary('2026-10-16')], []);
+    expect(summarizeCalendar(scoredThroughYesterday).streak).toBe(2);
+    const gapYesterday = buildCalendarDays(now, [summary('2026-10-15'), summary('2026-10-17')], []);
+    expect(summarizeCalendar(gapYesterday).streak).toBe(1);
+    const unknownYesterday = buildCalendarDays(
+      now,
+      [summary('2026-10-15'), summary('2026-10-16', { activityScore: null, steps: null, activeMinutes: null })],
+      [],
+    );
+    expect(summarizeCalendar(unknownYesterday).streak).toBe(0);
+  });
+
+  it('a valid zero keeps the streak going (it is a real, recorded day)', () => {
+    const days = buildCalendarDays(now, [summary('2026-10-16', { activityScore: 0 }), summary('2026-10-17')], []);
+    expect(summarizeCalendar(days).streak).toBe(2);
   });
 
   it('a stored day with only null metrics still counts as empty; a workout alone does not', () => {

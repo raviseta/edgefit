@@ -1,38 +1,42 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { SCORE_LEVEL_BANDS, type CalendarDay, type ScoreLevel } from '@/domain/calendar';
+import type { CalendarDay, ScoreLevel } from '@/domain/calendar';
 import { fromDateKey } from '@/domain/dates';
-import { EMPTY_VALUE } from '@/lib/format';
 import { fonts, radius, spacing, typography, useTheme, type ThemeColors } from '../theme';
 
-/** The MVP UI is English-only (see lib/format), so weeks start on Sunday as in en-US. */
+/** The MVP UI is English-only (see lib/format). Weeks run Monday to Sunday. */
 const LOCALE = 'en-US';
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const COLUMN = `${100 / 7}%` as const;
+const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const GAP = 6;
+/** Just under 1/7: exact sevenths can round past the row width and wrap the 7th column. */
+const COLUMN = '14.28%';
 
 /**
- * Fill opacity per score band, as a hex alpha on the accent colour. Text on
- * bands 1–3 uses the regular text colour; band 4 is solid accent with onAccent
- * text. Both pairs stay above 4.5:1 in light and dark mode.
+ * Five-step score scale: a neutral tile for a valid 0, then four accent bands.
+ * Unknown days are never on this scale: they are a dashed outline with no fill.
+ * Day numbers on every step stay at or above 4.5:1 contrast in both themes.
  */
-const BAND_ALPHA: Record<1 | 2 | 3, string> = { 1: '26', 2: '59', 3: '8C' };
+const SCALE_ALPHA = { light: ['1F', '4D', '94'], dark: ['2E', '5C', 'B0'] } as const;
 
-export function cellColors(level: ScoreLevel, colors: ThemeColors) {
+export function cellColors(level: ScoreLevel, colors: ThemeColors, isDark: boolean) {
   switch (level) {
     case 'unknown':
       return { background: 'transparent', border: colors.chartEmpty, borderStyle: 'dashed' as const, text: colors.textMuted };
     case 'zero':
-      return { background: colors.surfaceMuted, border: colors.chartEmpty, borderStyle: 'solid' as const, text: colors.text };
+      return { background: colors.surfaceMuted, border: 'transparent', borderStyle: 'solid' as const, text: colors.text };
     case 4:
-      return { background: colors.accent, border: colors.accent, borderStyle: 'solid' as const, text: colors.onAccent };
-    default:
-      return {
-        background: `${colors.accent}${BAND_ALPHA[level]}`,
-        border: 'transparent',
-        borderStyle: 'solid' as const,
-        text: colors.text,
-      };
+      return { background: colors.accent, border: 'transparent', borderStyle: 'solid' as const, text: colors.onAccent };
+    default: {
+      const alpha = SCALE_ALPHA[isDark ? 'dark' : 'light'][level - 1]!;
+      const text = isDark && level === 3 ? colors.onAccent : colors.text;
+      return { background: `${colors.accent}${alpha}`, border: 'transparent', borderStyle: 'solid' as const, text };
+    }
   }
+}
+
+/** The legend's 0 → 100 strip, in scale order. */
+export function scaleSwatches(colors: ThemeColors, isDark: boolean): string[] {
+  return (['zero', 1, 2, 3, 4] as const).map((level) => cellColors(level, colors, isDark).background);
 }
 
 export function longDateLabel(date: string): string {
@@ -47,12 +51,15 @@ export function dayAccessibilityLabel(day: CalendarDay): string {
   return parts.join(', ');
 }
 
-/**
- * 30-day heatmap laid out as weeks (Sunday first). Each cell shows the day of
- * the month and its score, or a dash when the score is unknown, so meaning is
- * never carried by colour alone: unknown days also get a dashed outline, a
- * valid zero shows "0" on a neutral tile, and today carries a dot marker.
- */
+/** Monday-first month grid: leading blanks before the first day, trailing blanks to fill the last week. */
+export function toMonthGrid(days: CalendarDay[]): (CalendarDay | null)[] {
+  if (days.length === 0) return [];
+  const leading = (fromDateKey(days[0]!.date).getDay() + 6) % 7; // Monday = 0
+  const cells: (CalendarDay | null)[] = [...Array.from({ length: leading }, () => null), ...days];
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
 export function ActivityCalendarGrid({
   days,
   selectedDate,
@@ -63,30 +70,32 @@ export function ActivityCalendarGrid({
   onSelect: (date: string) => void;
 }) {
   const { colors } = useTheme();
-  const leading = days.length > 0 ? fromDateKey(days[0]!.date).getDay() : 0;
-  const cells: (CalendarDay | null)[] = [...Array.from({ length: leading }, () => null), ...days];
+  const cells = toMonthGrid(days);
+  const firstDate = days[0]?.date;
 
   return (
     <View testID="calendar-grid">
       <View style={styles.row} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         {WEEKDAYS.map((d, i) => (
-          <Text key={i} style={[typography.caption, styles.weekday, { color: colors.textMuted }]}>
+          <Text key={i} style={[styles.weekday, { color: colors.textMuted }]}>
             {d}
           </Text>
         ))}
       </View>
-      <View style={styles.row}>
+      <View style={[styles.row, styles.cells]}>
         {cells.map((day, i) =>
           day ? (
             <CalendarCell
               key={day.date}
               day={day}
-              showMonth={i === leading || day.date.endsWith('-01')}
+              showMonth={day.date === firstDate || day.date.endsWith('-01')}
               selected={day.date === selectedDate}
               onPress={() => onSelect(day.date)}
             />
           ) : (
-            <View key={`pad-${i}`} style={styles.cellSlot} />
+            <View key={`pad-${i}`} style={styles.slot}>
+              <View style={styles.blank} />
+            </View>
           ),
         )}
       </View>
@@ -105,86 +114,109 @@ function CalendarCell({
   selected: boolean;
   onPress: () => void;
 }) {
-  const { colors } = useTheme();
-  const c = cellColors(day.level, colors);
+  const { colors, isDark } = useTheme();
+  const c = cellColors(day.level, colors, isDark);
   const date = fromDateKey(day.date);
-  const dayLabel = showMonth
-    ? `${date.toLocaleDateString(LOCALE, { month: 'short' })} ${date.getDate()}`
-    : String(date.getDate());
 
   return (
-    <View style={styles.cellSlot}>
+    <View style={styles.slot}>
+      {selected ? (
+        <View testID="calendar-selected-ring" pointerEvents="none" style={[styles.ring, { borderColor: colors.text }]} />
+      ) : null}
       <Pressable
         testID={`calendar-day-${day.date}`}
         accessibilityRole="button"
         accessibilityState={{ selected }}
         accessibilityLabel={dayAccessibilityLabel(day)}
         onPress={onPress}
-        style={[
-          styles.cell,
-          { backgroundColor: c.background, borderColor: c.border, borderStyle: c.borderStyle },
-          selected && { borderColor: colors.text, borderStyle: 'solid', borderWidth: 2 },
-        ]}
+        style={[styles.cell, { backgroundColor: c.background, borderColor: c.border, borderStyle: c.borderStyle }]}
       >
+        <Text maxFontSizeMultiplier={1.1} style={[styles.month, { color: c.text }]}>
+          {showMonth ? date.toLocaleDateString(LOCALE, { month: 'short' }) : ''}
+        </Text>
         <Text
           maxFontSizeMultiplier={1.2}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          style={[styles.cellDate, { color: c.text, fontFamily: day.isToday ? fonts.bodyBold : fonts.body }]}
+          style={[styles.number, { color: c.text, fontFamily: day.isToday ? fonts.bodyBold : fonts.bodyMedium }]}
         >
-          {dayLabel}
+          {date.getDate()}
         </Text>
-        <Text maxFontSizeMultiplier={1.2} style={[styles.cellScore, { color: c.text }]}>
-          {day.score === null ? EMPTY_VALUE : day.score}
-        </Text>
-        {day.isToday ? <View testID="calendar-today-marker" style={[styles.todayDot, { backgroundColor: c.text }]} /> : null}
+        <View
+          testID={day.isToday ? 'calendar-today-marker' : undefined}
+          style={[styles.dot, { backgroundColor: day.isToday ? c.text : 'transparent' }]}
+        />
       </Pressable>
     </View>
   );
 }
 
-/** Legend for the heatmap: unknown, zero, the four score bands, today and the selection ring. */
+/** "No data" outline, the 0 → 100 score strip, and the today marker. */
 export function ActivityCalendarLegend() {
-  const { colors } = useTheme();
-  const swatch = (level: ScoreLevel) => {
-    const c = cellColors(level, colors);
-    return [styles.swatch, { backgroundColor: c.background, borderColor: c.border, borderStyle: c.borderStyle }];
-  };
-  const item = (key: string, visual: React.ReactNode, label: string) => (
-    <View key={key} style={styles.legendItem}>
-      {visual}
-      <Text style={[typography.caption, { color: colors.textMuted }]}>{label}</Text>
-    </View>
-  );
-
+  const { colors, isDark } = useTheme();
   return (
-    <View testID="calendar-legend" style={styles.legend}>
-      {item('unknown', <View style={swatch('unknown')} />, 'No score (no data)')}
-      {item('zero', <View style={swatch('zero')} />, 'Score 0')}
-      {SCORE_LEVEL_BANDS.map((b) => item(`band-${b.level}`, <View style={swatch(b.level)} />, b.label))}
-      {item('today', <View style={[styles.legendDot, { backgroundColor: colors.text }]} />, 'Today (in progress)')}
-      {item('selected', <View style={[styles.swatch, { borderColor: colors.text, borderWidth: 2 }]} />, 'Selected')}
+    <View testID="calendar-legend" style={[styles.legend, { borderTopColor: colors.border }]}>
+      <View style={styles.legendItem} accessible accessibilityLabel="Outlined: no data">
+        <View style={[styles.swatch, styles.swatchEmpty, { borderColor: colors.chartEmpty }]} />
+        <Text style={[styles.legendText, { color: colors.textMuted }]}>No data</Text>
+      </View>
+      <View
+        style={styles.legendScale}
+        accessible
+        accessibilityLabel="Fill shows the Activity Score, from 0 (lightest) to 100 (darkest)"
+      >
+        <Text style={[styles.legendText, { color: colors.textMuted }]}>0</Text>
+        {scaleSwatches(colors, isDark).map((bg) => (
+          <View key={bg} style={[styles.swatch, { backgroundColor: bg }]} />
+        ))}
+        <Text style={[styles.legendText, { color: colors.textMuted }]}>100</Text>
+      </View>
+      <View style={styles.legendItem} accessible accessibilityLabel="Dot: today">
+        <View style={[styles.legendDot, { backgroundColor: colors.text }]} />
+        <Text style={[styles.legendText, { color: colors.textMuted }]}>Today</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap' },
-  weekday: { width: COLUMN, textAlign: 'center', marginBottom: spacing.xs },
-  cellSlot: { width: COLUMN, aspectRatio: 1, padding: 2 },
-  cell: {
-    flex: 1,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 1,
+  row: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -GAP / 2 },
+  cells: { rowGap: GAP },
+  weekday: { ...typography.overline, width: COLUMN, textAlign: 'center', marginBottom: spacing.sm, letterSpacing: 0 },
+  slot: { width: COLUMN, paddingHorizontal: GAP / 2 },
+  blank: { aspectRatio: 1 },
+  ring: {
+    position: 'absolute',
+    top: -4,
+    bottom: -4,
+    left: GAP / 2 - 4,
+    right: GAP / 2 - 4,
+    borderRadius: radius.md + 2,
+    borderWidth: 2,
   },
-  cellDate: { fontSize: 10, lineHeight: 13 },
-  cellScore: { fontFamily: fonts.display, fontSize: 13, lineHeight: 16, fontVariant: ['tabular-nums'] },
-  todayDot: { position: 'absolute', top: 3, right: 3, width: 5, height: 5, borderRadius: 3 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.md, rowGap: spacing.xs, marginTop: spacing.md },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  swatch: { width: 14, height: 14, borderRadius: 4, borderWidth: 1 },
-  legendDot: { width: 6, height: 6, borderRadius: 3, marginHorizontal: 4 },
+  cell: { aspectRatio: 1, borderRadius: 10, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', gap: 1 },
+  month: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 9,
+    lineHeight: 10,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    opacity: 0.8,
+  },
+  number: { fontSize: 14, lineHeight: 18, fontVariant: ['tabular-nums'] },
+  dot: { width: 4, height: 4, borderRadius: 2 },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendScale: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  legendText: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16 },
+  swatch: { width: 14, height: 14, borderRadius: 4 },
+  swatchEmpty: { borderWidth: 1.5, borderStyle: 'dashed' },
+  legendDot: { width: 4, height: 4, borderRadius: 2 },
 });
