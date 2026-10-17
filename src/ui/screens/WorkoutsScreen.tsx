@@ -66,7 +66,7 @@ function workoutIcon(type: string): IconName {
   return 'pulse';
 }
 
-function WorkoutRow({ workout, now, unit, first }: { workout: Workout; now: Date; unit: EnergyUnit; first: boolean }) {
+export function WorkoutRow({ workout, now, unit, first }: { workout: Workout; now: Date; unit: EnergyUnit; first: boolean }) {
   const { colors } = useTheme();
   const start = new Date(workout.startDate);
   const details = [formatDuration(workout.durationMinutes)];

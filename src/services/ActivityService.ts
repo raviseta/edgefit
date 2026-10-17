@@ -1,9 +1,20 @@
-import { lastNDayKeys } from '@/domain/dates';
+import { buildCalendarDays, CALENDAR_DAYS, summarizeCalendar, type CalendarDay, type CalendarSummary } from '@/domain/calendar';
+import { addDays, fromDateKey, lastNDayKeys } from '@/domain/dates';
 import type { ActivityInsight, AppSettings, DailySummary, DateKey, Workout } from '@/domain/models';
 import type { HealthProviderKind } from '@/health/HealthService';
 import type { Repositories } from '@/data/repositories';
 import { logger } from '@/lib/logger';
 import { HISTORY_DAYS, type SyncOutcome, type SyncService } from './SyncService';
+
+/** The 30-day calendar, read from local storage only. */
+export interface CalendarSnapshot {
+  settings: AppSettings;
+  provider: HealthProviderKind;
+  /** Oldest first; exactly CALENDAR_DAYS entries ending today. */
+  days: CalendarDay[];
+  summary: CalendarSummary;
+  refreshedAt: string;
+}
 
 export interface HistoryDay {
   date: DateKey;
@@ -52,6 +63,29 @@ export class ActivityService {
       });
     }
     return this.inFlight;
+  }
+
+  /**
+   * Reads the 30-day calendar from persisted summaries and workouts. Does not
+   * sync: screens refresh health data through `refresh()`.
+   */
+  async getCalendar(): Promise<CalendarSnapshot> {
+    const { repositories } = this.deps;
+    const now = this.deps.now?.() ?? new Date();
+    const keys = lastNDayKeys(CALENDAR_DAYS, now);
+    const [settings, summaries, workouts] = await Promise.all([
+      repositories.settings.get(),
+      repositories.summaries.getRange(keys[0]!, keys[keys.length - 1]!),
+      repositories.workouts.listStartedBetween(fromDateKey(keys[0]!), addDays(fromDateKey(keys[keys.length - 1]!), 1)),
+    ]);
+    const days = buildCalendarDays(now, summaries, workouts);
+    return {
+      settings,
+      provider: this.deps.provider,
+      days,
+      summary: summarizeCalendar(days),
+      refreshedAt: now.toISOString(),
+    };
   }
 
   /** Wipes every EdgeFit table once any running sync has finished. Health data itself is untouched. */
