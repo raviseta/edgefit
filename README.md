@@ -28,6 +28,10 @@ touching the UI or data layers.
   Score (with an on-demand breakdown) and the top insight.
 - **Activity** – 7-day steps chart with average line, Activity Score trend, daily
   breakdown and all current insights. Missing days are drawn as dashed gaps.
+- **30-Day Activity Calendar** (Activity → 30-Day Activity Calendar) – a heatmap of the
+  Activity Score for the last 30 local days, with coverage, average and best-day stats that
+  use scored days only, and per-day metrics, score breakdown and workouts. Days without a
+  score are shown as "no score", never as zero.
 - **Workouts** – workouts from the last 30 days: type, start time, duration, calories
   where recorded. EdgeFit reads workouts; it does not record them.
 - **Privacy Center** – what is read, where it is stored, that no cloud processing is

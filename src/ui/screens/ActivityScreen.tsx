@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { hasAnyMetric, type DailySummary } from '@/domain/models';
@@ -6,6 +7,7 @@ import type { ActivitySnapshot, HistoryDay } from '@/services/ActivityService';
 import { InsightCard } from '../components/ActivityCards';
 import { BarChart } from '../components/BarChart';
 import { Card, Screen, SectionTitle } from '../components/primitives';
+import { Row, RowGroup } from '../components/SettingsRows';
 import { SnapshotNotices } from '../components/SnapshotNotices';
 import { EmptyState, ErrorState, LoadingState, PermissionDeniedState } from '../components/StateViews';
 import { useActivitySnapshot } from '../hooks';
@@ -87,6 +89,16 @@ export function ActivityContent({ snapshot, now }: { snapshot: ActivitySnapshot;
           </Card>
         </>
       )}
+
+      <RowGroup>
+        <Row
+          first
+          icon="chart"
+          label="30-Day Activity Calendar"
+          onPress={() => router.push('/activity/calendar')}
+          testID="row-calendar"
+        />
+      </RowGroup>
 
       {insights.length > 0 ? <SectionTitle>Insights</SectionTitle> : null}
       {insights.map((insight) => (
