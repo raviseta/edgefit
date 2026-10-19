@@ -20,6 +20,13 @@ touching the UI or data layers.
 | --- | --- | --- | --- |
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Activity](docs/screenshots/activity.png) | ![Workouts](docs/screenshots/workouts.png) | ![Settings](docs/screenshots/settings.png) |
 
+The **30-Day Activity Calendar** opens from the Activity tab. Days without a score are
+outlined, never shown as zero; tap a day to see its score breakdown, metrics and workouts.
+
+| 30-Day Calendar | Selected day |
+| --- | --- |
+| <img src="docs/screenshots/calendar-dark.png" alt="30-Day Activity Calendar" width="220"> | <img src="docs/screenshots/calendar-day-dark.png" alt="Selected day in the 30-Day Activity Calendar" width="220"> |
+
 ## Features
 
 - **Onboarding** – welcome, privacy explanation, list of data types read, HealthKit
@@ -29,9 +36,9 @@ touching the UI or data layers.
 - **Activity** – 7-day steps chart with average line, Activity Score trend, daily
   breakdown and all current insights. Missing days are drawn as dashed gaps.
 - **30-Day Activity Calendar** (Activity → 30-Day Activity Calendar) – a heatmap of the
-  Activity Score for the last 30 local days, with coverage, average and best-day stats that
-  use scored days only, and per-day metrics, score breakdown and workouts. Days without a
-  score are shown as "no score", never as zero.
+  Activity Score for the last 30 local days, with coverage, average, streak and best-day
+  stats that use scored days only, and per-day metrics, score breakdown and workouts. Days
+  without a score are drawn as outlines, never as zero.
 - **Workouts** – workouts from the last 30 days: type, start time, duration, calories
   where recorded. EdgeFit reads workouts; it does not record them.
 - **Privacy Center** – what is read, where it is stored, that no cloud processing is
