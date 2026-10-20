@@ -42,3 +42,6 @@ yarn-error.*
 
 # test output
 coverage/
+
+# Claude Code local settings
+.claude/
