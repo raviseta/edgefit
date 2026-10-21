@@ -28,7 +28,7 @@ export interface HealthFixture {
   workouts: FixtureWorkout[];
 }
 
-export type HealthScenario = 'empty' | 'normal' | 'high' | 'low' | 'missingMetrics' | 'multipleWorkouts';
+export type HealthScenario = 'empty' | 'normal' | 'high' | 'low' | 'missingMetrics' | 'multipleWorkouts' | 'twoWeeks';
 
 const week = (rows: [steps: number, kcal: number, minutes: number][]): FixtureDay[] =>
   rows.map(([steps, activeCalories, activeMinutes], i) => ({
@@ -124,6 +124,40 @@ export const multipleWorkoutsFixture: HealthFixture = {
   ],
 };
 
+/**
+ * Two full weeks before today (plus a partial today), for the weekly
+ * Personal Activity Insights. The last 7 complete days average 9,000 steps,
+ * the 7 days before them 8,000 (+13%), with workouts on 3 of the last 7 days.
+ */
+export const twoWeeksFixture: HealthFixture = {
+  name: 'twoWeeks',
+  days: week([
+    [7600, 350, 30],
+    [8400, 380, 34],
+    [8200, 372, 33],
+    [7300, 330, 28],
+    [8900, 410, 40],
+    [7800, 356, 31],
+    [7800, 352, 30],
+    [9500, 440, 46],
+    [8100, 370, 33],
+    [10400, 488, 55],
+    [8600, 395, 37],
+    [9200, 420, 44],
+    [7900, 362, 31],
+    [9300, 428, 45],
+    [5200, 240, 22],
+  ]),
+  workouts: [
+    { id: 'wk-two-1', offset: 0, hour: 7, minute: 0, activityType: 'running', durationMinutes: 30, energyKcal: 280 },
+    { id: 'wk-two-2', offset: -1, hour: 7, minute: 15, activityType: 'running', durationMinutes: 38, energyKcal: 340 },
+    { id: 'wk-two-3', offset: -1, hour: 18, minute: 30, activityType: 'yoga', durationMinutes: 25, energyKcal: 80 },
+    { id: 'wk-two-4', offset: -4, hour: 12, minute: 0, activityType: 'traditionalStrengthTraining', durationMinutes: 45, energyKcal: 200 },
+    { id: 'wk-two-5', offset: -7, hour: 6, minute: 40, activityType: 'cycling', durationMinutes: 50, energyKcal: 410 },
+    { id: 'wk-two-6', offset: -10, hour: 17, minute: 0, activityType: 'swimming', durationMinutes: 35, energyKcal: 300 },
+  ],
+};
+
 export const fixtures: Record<HealthScenario, HealthFixture> = {
   empty: emptyFixture,
   normal: normalFixture,
@@ -131,6 +165,7 @@ export const fixtures: Record<HealthScenario, HealthFixture> = {
   low: lowFixture,
   missingMetrics: missingMetricsFixture,
   multipleWorkouts: multipleWorkoutsFixture,
+  twoWeeks: twoWeeksFixture,
 };
 
 export function isHealthScenario(value: unknown): value is HealthScenario {

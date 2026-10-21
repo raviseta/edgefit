@@ -1,16 +1,22 @@
 import { buildActivityData, buildDailySummaries } from '@/domain/aggregation';
 import { addDays, lastNDayKeys, lastNDaysRange, startOfDay, toDateKey } from '@/domain/dates';
+import { HEALTH_METRICS, type HealthMetric } from '@/domain/models';
 import type { DailyQuantity, HealthService } from '@/health/HealthService';
 import { normalizeWorkout } from '@/health/normalization';
 import type { ActivityIntelligenceService } from '@/intelligence/ActivityIntelligenceService';
 import { BASELINE_WINDOW_DAYS } from '@/intelligence/features';
+import { PERSONAL_INSIGHT_LOOKBACK_DAYS } from '@/intelligence/personalInsights';
 import type { Repositories } from '@/data/repositories';
 import { logger } from '@/lib/logger';
 
 /** Days shown on the Activity screen (including today). */
 export const HISTORY_DAYS = 7;
-/** Days of activity read per sync: today plus the 7-day insight baseline. */
-export const ACTIVITY_SYNC_DAYS = BASELINE_WINDOW_DAYS + 1;
+/**
+ * Days of activity read per sync: today plus enough complete days for both the
+ * 7-day insight baseline and the two-week personal insights, so every day those
+ * read is rewritten from the health platform on each successful sync.
+ */
+export const ACTIVITY_SYNC_DAYS = Math.max(BASELINE_WINDOW_DAYS, PERSONAL_INSIGHT_LOOKBACK_DAYS) + 1;
 /** Workouts shown in Workout History. */
 export const WORKOUT_SYNC_DAYS = 30;
 /** Retention: processed data older than this is deleted on every sync. */
@@ -68,9 +74,9 @@ export class SyncService {
       health.getWorkouts(workoutRange.start, workoutRange.end),
     ]);
 
-    const failedMetrics: string[] = [];
+    const failedMetrics: HealthMetric[] = [];
     const quantities = { steps, activeCalories, activeMinutes };
-    for (const [name, result] of Object.entries(quantities)) {
+    for (const [name, result] of Object.entries(quantities) as [QuantityMetric, PromiseSettledResult<DailyQuantity[]>][]) {
       if (result.status === 'rejected') {
         failedMetrics.push(name);
         logger.warn('health.query_failed', result.reason, { metric: name, provider: health.provider });
@@ -116,7 +122,12 @@ export class SyncService {
     }
     // Score with whatever workouts are cached if the workout query failed this time.
     const workoutsForScoring = workouts ?? (await repositories.workouts.list());
-    await repositories.summaries.upsertMany(buildDailySummaries(activity, workoutsForScoring), now);
+    // Metrics re-saved from the cache are only as complete as they were before this sync.
+    await repositories.summaries.upsertMany(
+      buildDailySummaries(activity, workoutsForScoring),
+      now,
+      HEALTH_METRICS.filter((m) => !failedMetrics.includes(m)),
+    );
 
     const insights = settings.analyticsEnabled ? await intelligence.generateInsights(activity) : [];
     await repositories.insights.replaceAll(insights);

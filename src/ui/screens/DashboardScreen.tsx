@@ -4,6 +4,7 @@ import { hasAnyMetric } from '@/domain/models';
 import { EMPTY_VALUE, formatDuration, formatEnergyValue, formatMetric, greeting } from '@/lib/format';
 import type { ActivitySnapshot } from '@/services/ActivityService';
 import { InsightCard, MetricCard, MetricGrid, ScoreCard } from '../components/ActivityCards';
+import { PersonalInsightsSection } from '../components/PersonalInsights';
 import { Screen, SectionTitle } from '../components/primitives';
 import { SnapshotNotices } from '../components/SnapshotNotices';
 import { EmptyState, ErrorState, LoadingState, PermissionDeniedState } from '../components/StateViews';
@@ -78,6 +79,7 @@ export function DashboardContent({ snapshot }: { snapshot: ActivitySnapshot }) {
         </>
       )}
       {insight ? <InsightCard insight={insight} /> : null}
+      {snapshot.personalInsights ? <PersonalInsightsSection insights={snapshot.personalInsights} /> : null}
     </>
   );
 }

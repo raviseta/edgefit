@@ -25,6 +25,19 @@ export interface DailySummary extends ActivityData {
   activityScore: number | null;
 }
 
+/** What each sync reads from the health platform. */
+export const HEALTH_METRICS = ['steps', 'activeCalories', 'activeMinutes', 'workouts'] as const;
+export type HealthMetric = (typeof HEALTH_METRICS)[number];
+
+/** A persisted summary plus, per metric, whether its saved value covers the whole day. */
+export interface StoredDailySummary extends DailySummary {
+  /**
+   * True when the metric was last read fresh (not re-saved from the cache) by a
+   * sync that ran after the row's local day had ended.
+   */
+  complete: Record<HealthMetric, boolean>;
+}
+
 export interface Workout {
   id: string;
   /** Human-readable workout type, e.g. "Running". */

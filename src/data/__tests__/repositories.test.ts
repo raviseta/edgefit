@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS, type DailySummary, type Workout } from '@/domain/models';
 import { NodeSqliteDatabase } from '@/test-utils/NodeSqliteDatabase';
-import { migrate, SCHEMA_VERSION } from '../migrations';
+import { migrate, MIGRATIONS, SCHEMA_VERSION } from '../migrations';
 import { createRepositories } from '../repositories';
 
 async function setup() {
@@ -34,6 +34,22 @@ describe('migrations', () => {
     await migrate(db);
     await migrate(db);
     expect(await db.getFirst<{ user_version: number }>('PRAGMA user_version')).toEqual({ user_version: SCHEMA_VERSION });
+  });
+
+  it('backfills completeness for rows saved before the upgrade', async () => {
+    const db = new NodeSqliteDatabase();
+    await db.exec(MIGRATIONS[0]!);
+    await db.exec('PRAGMA user_version = 1');
+    const insert = 'INSERT INTO daily_summaries (date, steps, updated_at) VALUES (?, ?, ?)';
+    await db.run(insert, ['2026-09-28', 5000, new Date(2026, 8, 29, 8).toISOString()]);
+    await db.run(insert, ['2026-09-29', 3000, new Date(2026, 8, 29, 9).toISOString()]);
+    await migrate(db);
+
+    const rows = await createRepositories(db).summaries.getStoredRange('2026-09-28', '2026-09-29');
+    expect(rows.map((r) => r.complete)).toEqual([
+      { steps: true, activeCalories: true, activeMinutes: true, workouts: true },
+      { steps: false, activeCalories: false, activeMinutes: false, workouts: false },
+    ]);
   });
 });
 

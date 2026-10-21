@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react-native';
+import { fireEvent, screen, within } from '@testing-library/react-native';
 
 import { fixtures } from '@/health/fixtures';
 import { createTestServices, testNow } from '@/test-utils/harness';
@@ -92,5 +92,80 @@ describe('DashboardScreen', () => {
     const { services } = await createTestServices({ settings: { energyUnit: 'kJ' } });
     await renderWithServices(<DashboardScreen now={testNow} />, services);
     expect(await screen.findByLabelText('Active Energy: 1,238 kJ')).toBeTruthy();
+  });
+});
+
+describe('DashboardScreen – Personal Activity Insights', () => {
+  it('shows the three insights with their periods and supporting values', async () => {
+    const { services } = await createTestServices({ fixture: fixtures.twoWeeks });
+    await renderWithServices(<DashboardScreen now={testNow} />, services);
+    expect(await screen.findByText('Personal Activity Insights')).toBeTruthy();
+
+    const active = within(screen.getByTestId('personal-insight-activity-consistency'));
+    expect(active.getByText('You recorded activity on 7 of the last 7 days.')).toBeTruthy();
+    expect(active.getByText('Sep 23 – Sep 29')).toBeTruthy();
+
+    const steps = within(screen.getByTestId('personal-insight-weekly-steps'));
+    expect(steps.getByText('Your recorded steps increased compared with the previous week.')).toBeTruthy();
+    expect(steps.getByText('Sep 23 – Sep 29 vs Sep 16 – Sep 22')).toBeTruthy();
+    expect(steps.getByText('Last 7 days: 9,000 steps a day on average (7 of 7 days with steps).')).toBeTruthy();
+    expect(steps.getByText('Change: +13%.')).toBeTruthy();
+
+    const workouts = within(screen.getByTestId('personal-insight-exercise-frequency'));
+    expect(workouts.getByText('You recorded workouts on 3 different days in the last 7 days.')).toBeTruthy();
+  });
+
+  it('explains a calculation on demand', async () => {
+    const { services } = await createTestServices({ fixture: fixtures.twoWeeks });
+    await renderWithServices(<DashboardScreen now={testNow} />, services);
+    const card = within(await screen.findByTestId('personal-insight-weekly-steps'));
+    expect(screen.queryByTestId('personal-insight-weekly-steps-explanation')).toBeNull();
+    await fireEvent.press(card.getByRole('button', { name: 'How is this calculated?' }));
+    expect(screen.getByTestId('personal-insight-weekly-steps-explanation')).toBeTruthy();
+  });
+
+  it('says why the step comparison is missing, with valid-day counts, instead of inventing one', async () => {
+    const { services } = await createTestServices();
+    await renderWithServices(<DashboardScreen now={testNow} />, services);
+    const note = await screen.findByTestId('personal-insight-unavailable-weekly-steps');
+    expect(
+      within(note).getByText(
+        'A weekly step comparison needs at least 5 days with recorded steps in each week (last 7 days: 7, week before: 0).',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('personal-insight-weekly-steps')).toBeNull();
+    expect(screen.getByTestId('personal-insight-activity-consistency')).toBeTruthy();
+  });
+
+  it('shows coverage when some days have no data', async () => {
+    const { services } = await createTestServices({ fixture: fixtures.missingMetrics });
+    await renderWithServices(<DashboardScreen now={testNow} />, services);
+    const active = within(await screen.findByTestId('personal-insight-activity-consistency'));
+    expect(active.getByText('You recorded activity on all 5 days with data in the last 7 days.')).toBeTruthy();
+  });
+
+  it('shows an honest empty state with no history', async () => {
+    const { services } = await createTestServices({ fixture: fixtures.empty });
+    await renderWithServices(<DashboardScreen now={testNow} />, services);
+    expect(await screen.findByTestId('personal-insights-empty')).toBeTruthy();
+    expect(screen.queryByTestId('personal-insight-activity-consistency')).toBeNull();
+    expect(screen.queryByTestId('personal-insight-weekly-steps')).toBeNull();
+    expect(screen.queryByTestId('personal-insight-exercise-frequency')).toBeNull();
+  });
+
+  it('keeps showing insights from saved data when the sync fails, alongside the warning', async () => {
+    const { services, health } = await createTestServices({ fixture: fixtures.twoWeeks });
+    await services.activity.refresh();
+    jest.spyOn(health, 'isAvailable').mockRejectedValue(new Error('down'));
+    await renderWithServices(<DashboardScreen now={testNow} />, services);
+    expect(await screen.findByTestId('banner-sync-failed')).toBeTruthy();
+    expect(screen.getByTestId('personal-insight-weekly-steps')).toBeTruthy();
+  });
+
+  it('is hidden when insights are turned off', async () => {
+    const { services } = await createTestServices({ fixture: fixtures.twoWeeks, settings: { analyticsEnabled: false } });
+    await renderWithServices(<DashboardScreen now={testNow} />, services);
+    expect(await screen.findByTestId('dashboard')).toBeTruthy();
+    expect(screen.queryByTestId('personal-insights')).toBeNull();
   });
 });

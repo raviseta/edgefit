@@ -6,7 +6,7 @@ import type { Database } from './Database';
  * Only processed, per-day data is stored. Raw HealthKit samples are never
  * persisted. Metric columns are nullable: NULL = no data reported.
  */
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   `
   CREATE TABLE IF NOT EXISTS daily_summaries (
     date TEXT PRIMARY KEY NOT NULL,
@@ -38,6 +38,13 @@ const MIGRATIONS: string[] = [
     key TEXT PRIMARY KEY NOT NULL,
     value TEXT NOT NULL
   );
+  `,
+  // Bitmask of metrics whose saved value covers the whole day (see SummaryRepository).
+  // Existing rows are backfilled from when they were last written, so upgrading
+  // doesn't hide insights until the next fully successful sync.
+  `
+  ALTER TABLE daily_summaries ADD COLUMN complete INTEGER NOT NULL DEFAULT 0;
+  UPDATE daily_summaries SET complete = 15 WHERE date < date(updated_at, 'localtime');
   `,
 ];
 
