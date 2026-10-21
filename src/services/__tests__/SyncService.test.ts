@@ -2,6 +2,7 @@ import { toDateKey } from '@/domain/dates';
 import { fixtures, type HealthFixture } from '@/health/fixtures';
 import { logger } from '@/lib/logger';
 import type { AppServices } from '@/services/createAppServices';
+import { ACTIVITY_SYNC_DAYS } from '@/services/SyncService';
 import { createTestServices, testNow } from '@/test-utils/harness';
 
 beforeEach(() => logger.clear());
@@ -216,14 +217,17 @@ describe('ActivityService.refresh (sync pipeline)', () => {
     ['on the 25-hour DST fall-back day', new Date(2026, 10, 1, 23, 30), '2026-10-25'],
     ['the day after DST ends', new Date(2026, 10, 2, 9, 0), '2026-10-26'],
     ['the day after DST starts', new Date(2026, 2, 9, 0, 30), '2026-03-02'],
-  ])('syncs eight distinct local days %s', async (_label, at, firstDay) => {
+  ])('syncs fifteen distinct local days %s', async (_label, at, firstFixtureDay) => {
     const { services } = await createTestServices({ now: () => new Date(at.getTime()) });
     await services.activity.refresh();
     const stored = await services.repositories.summaries.getRange('2000-01-01', '2100-01-01');
-    expect(stored).toHaveLength(8);
-    expect(stored[0]!.date).toBe(firstDay);
-    expect(new Set(stored.map((s) => s.date)).size).toBe(8);
-    expect(stored.map((s) => s.steps)).toEqual(fixtures.normal.days.map((d) => d.steps));
+    expect(stored).toHaveLength(ACTIVITY_SYNC_DAYS);
+    expect(new Set(stored.map((s) => s.date)).size).toBe(ACTIVITY_SYNC_DAYS);
+    // The fixture covers the last 8 days; the 7 days before them are stored as "no data", not zero.
+    const fixtureDays = stored.slice(-8);
+    expect(fixtureDays[0]!.date).toBe(firstFixtureDay);
+    expect(fixtureDays.map((s) => s.steps)).toEqual(fixtures.normal.days.map((d) => d.steps));
+    expect(stored.slice(0, -8).every((s) => s.steps === null && s.activityScore === null)).toBe(true);
   });
 
   it('dashboard, activity history and workout list agree on today', async () => {

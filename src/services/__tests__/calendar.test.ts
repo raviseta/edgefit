@@ -1,6 +1,8 @@
 import { calculateActivityScore } from '@/domain/activityScore';
+import { CALENDAR_DAYS } from '@/domain/calendar';
 import { toDateKey } from '@/domain/dates';
 import { fixtures } from '@/health/fixtures';
+import { ACTIVITY_SYNC_DAYS } from '@/services/SyncService';
 import { createTestServices } from '@/test-utils/harness';
 
 describe('ActivityService.getCalendar', () => {
@@ -33,8 +35,10 @@ describe('ActivityService.getCalendar', () => {
     const stored = await services.repositories.summaries.getRange(days[0]!.date, days.at(-1)!.date);
     const scores = stored.map((s) => s.activityScore).filter((s): s is number => s !== null);
 
-    // A sync covers today plus 7 baseline days; the other 22 days have nothing saved.
-    expect(days.filter((d) => d.summary === null)).toHaveLength(22);
+    // A sync covers ACTIVITY_SYNC_DAYS days (today included); the rest have nothing saved.
+    expect(days.filter((d) => d.summary === null)).toHaveLength(CALENDAR_DAYS - ACTIVITY_SYNC_DAYS);
+    // Synced days the fixture has no data for are stored with null metrics and stay unknown too.
+    expect(days.filter((d) => d.summary !== null && d.summary.steps === null).every((d) => d.level === 'unknown')).toBe(true);
     expect(days.filter((d) => d.summary === null).every((d) => d.level === 'unknown')).toBe(true);
     expect(summary.scoredDays).toBe(scores.length);
     expect(summary.averageScore).toBeCloseTo(scores.reduce((a, b) => a + b, 0) / scores.length);

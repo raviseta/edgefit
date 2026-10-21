@@ -1,7 +1,8 @@
 import { buildCalendarDays, CALENDAR_DAYS, summarizeCalendar, type CalendarDay, type CalendarSummary } from '@/domain/calendar';
-import { addDays, fromDateKey, lastNDayKeys } from '@/domain/dates';
+import { addDays, addDaysToKey, fromDateKey, lastNDayKeys } from '@/domain/dates';
 import type { ActivityInsight, AppSettings, DailySummary, DateKey, Workout } from '@/domain/models';
 import type { HealthProviderKind } from '@/health/HealthService';
+import { buildPersonalInsights, PERSONAL_INSIGHT_LOOKBACK_DAYS, type PersonalInsights } from '@/intelligence/personalInsights';
 import type { Repositories } from '@/data/repositories';
 import { logger } from '@/lib/logger';
 import { HISTORY_DAYS, type SyncOutcome, type SyncService } from './SyncService';
@@ -30,6 +31,8 @@ export interface ActivitySnapshot {
   /** Last 7 days, oldest first; `summary` is null for days with no stored data. */
   history: HistoryDay[];
   insights: ActivityInsight[];
+  /** Two-week personal insights from saved data; null when insights are turned off. */
+  personalInsights: PersonalInsights | null;
   workouts: Workout[];
   refreshedAt: string;
 }
@@ -114,15 +117,20 @@ export class ActivityService {
     const { repositories } = this.deps;
     const now = this.deps.now?.() ?? new Date();
     const days = lastNDayKeys(HISTORY_DAYS, now);
+    const today = days[days.length - 1]!;
+    const lookbackStart = addDaysToKey(today, -PERSONAL_INSIGHT_LOOKBACK_DAYS);
 
-    const [settings, summaries, insights, workouts] = await Promise.all([
+    // One read covers both the 7-day history and the two-week insight window.
+    const [settings, stored, insights, workouts, lookbackWorkouts] = await Promise.all([
       repositories.settings.get(),
-      repositories.summaries.getRange(days[0]!, days[days.length - 1]!),
+      repositories.summaries.getStoredRange(lookbackStart, today),
       repositories.insights.list(),
       repositories.workouts.list(),
+      // `list()` is capped, so the insight window gets its own bounded query.
+      repositories.workouts.listStartedBetween(fromDateKey(lookbackStart), fromDateKey(today)),
     ]);
 
-    const byDate = new Map(summaries.map((s) => [s.date, s]));
+    const byDate = new Map(stored.map(({ complete: _complete, ...summary }) => [summary.date, summary]));
     const history = days.map((date) => ({ date, summary: byDate.get(date) ?? null }));
 
     return {
@@ -132,6 +140,13 @@ export class ActivityService {
       today: history[history.length - 1]?.summary ?? null,
       history,
       insights: settings.analyticsEnabled ? insights : [],
+      personalInsights: settings.analyticsEnabled
+        ? buildPersonalInsights({
+            now,
+            summaries: stored,
+            workouts: lookbackWorkouts,
+          })
+        : null,
       workouts,
       refreshedAt: now.toISOString(),
     };

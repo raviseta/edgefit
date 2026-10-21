@@ -32,7 +32,9 @@ outlined, never shown as zero; tap a day to see its score breakdown, metrics and
 - **Onboarding** – welcome, privacy explanation, list of data types read, HealthKit
   permission request, and "Continue without access". No sign-up.
 - **Dashboard** – today's steps, active energy, active time, workout count, Activity
-  Score (with an on-demand breakdown) and the top insight.
+  Score (with an on-demand breakdown), the top insight, and **Personal Activity
+  Insights** – active days, a weekly step comparison and workout days over the last
+  complete weeks, each with its period, supporting values and an on-demand explanation.
 - **Activity** – 7-day steps chart with average line, Activity Score trend, daily
   breakdown and all current insights. Missing days are drawn as dashed gaps.
 - **30-Day Activity Calendar** (Activity → 30-Day Activity Calendar) – a heatmap of the
@@ -70,7 +72,7 @@ To run with deterministic demo data instead of HealthKit (any platform):
 EXPO_PUBLIC_HEALTH_PROVIDER=mock EXPO_PUBLIC_MOCK_SCENARIO=normal npx expo run:ios
 ```
 
-Scenarios: `normal`, `high`, `low`, `empty`, `missingMetrics`, `multipleWorkouts`.
+Scenarios: `normal`, `high`, `low`, `empty`, `missingMetrics`, `multipleWorkouts`, `twoWeeks`.
 
 ### Checks
 
@@ -150,7 +152,8 @@ Local persistence        src/data – SQLite repositories, schema migrations
         ↓
 Feature extraction       src/intelligence/features.ts – 7-day baseline, ratios, consistency
         ↓
-Insights                 RuleBasedActivityIntelligenceService
+Insights                 RuleBasedActivityIntelligenceService (today vs. the last 7 days)
+                         personalInsights.ts (last two complete weeks, read from SQLite)
 ```
 
 ### Key decisions
@@ -232,6 +235,37 @@ rules and a worked example.
 | Consistent week | ≥ 5 of the last 7 days within ±25% of the average |
 | Building your baseline | fewer than 3 days of step history |
 | No activity recorded yet today | no steps or exercise minutes today |
+
+### Personal Activity Insights
+
+`src/intelligence/personalInsights.ts` builds three observations from the saved daily
+summaries and workouts each time the Dashboard reads its data. Nothing extra is stored, so
+workout deletions and Clear Local Data are reflected immediately. They never include
+today (still in progress). "Last 7 days" means the 7 complete local calendar days before
+today; "the week before" means the 7 days before those.
+
+| Insight | Rule | Shown when |
+| --- | --- | --- |
+| Active days | days with any steps, active energy or exercise minutes > 0, or a workout | at least one complete day has data |
+| Weekly steps | mean steps over days *with recorded steps* in each week; direction and % follow the rounded values; no % when the week before averaged 0 | ≥ 5 days with recorded steps in **each** week, and steps could be read in the latest sync |
+| Workout days | distinct local days with ≥ 1 workout of 1 minute or longer (several workouts on one day count once) | the whole week was synced after it ended, and workouts could be read in the latest sync |
+
+Data semantics:
+
+- **Missing ≠ zero.** A recorded 0 steps is a valid day; a day without step data is left
+  out of the average, not counted as 0. Days without data are not called inactive.
+- **Complete days only.** A day counts only if its saved row was written after that day
+  ended (`daily_summaries.updated_at` ≥ the following local midnight). A day saved mid-day
+  and never refreshed is treated as partial and left out.
+- **Sync depth.** Each sync rewrites today plus the 14 days before it
+  (`ACTIVITY_SYNC_DAYS = 15`), so the two-week window is refreshed from Health every time.
+- When an insight isn't shown, the Dashboard says why (e.g. the valid-day counts for each
+  week) instead of showing substitute content. Turning insights off hides the section.
+- Limitations: workouts only include exercise saved to Health as a workout; HealthKit does
+  not reveal denied read access, so a week with no workouts is described only as "no
+  workouts recorded".
+
+Use `EXPO_PUBLIC_MOCK_SCENARIO=twoWeeks` with the mock provider to see all three.
 
 ## Path to on-device ML
 

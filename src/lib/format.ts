@@ -50,6 +50,12 @@ export function formatDayLabel(key: DateKey, now: Date): string {
   return fromDateKey(key).toLocaleDateString(LOCALE, { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+/** Inclusive local date range, e.g. "Sep 23 – Sep 29". */
+export function formatDateRange(start: DateKey, end: DateKey): string {
+  const fmt = (key: DateKey) => fromDateKey(key).toLocaleDateString(LOCALE, { month: 'short', day: 'numeric' });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
 /** Single-letter-ish weekday for chart axes, e.g. "Mon". */
 export function formatWeekday(key: DateKey): string {
   return fromDateKey(key).toLocaleDateString(LOCALE, { weekday: 'short' });
