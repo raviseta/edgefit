@@ -1,4 +1,5 @@
 import type { Database } from '../Database';
+import { GoalRepository } from './GoalRepository';
 import { InsightRepository } from './InsightRepository';
 import { SettingsRepository } from './SettingsRepository';
 import { SummaryRepository } from './SummaryRepository';
@@ -7,6 +8,7 @@ import { WorkoutRepository } from './WorkoutRepository';
 export { InsightRepository, SettingsRepository, SummaryRepository, WorkoutRepository };
 
 export interface Repositories {
+  goals: GoalRepository;
   summaries: SummaryRepository;
   workouts: WorkoutRepository;
   insights: InsightRepository;
@@ -21,6 +23,7 @@ export function createRepositories(db: Database): Repositories {
   const insights = new InsightRepository(db);
   const settings = new SettingsRepository(db);
   return {
+    goals: new GoalRepository(db),
     summaries,
     workouts,
     insights,

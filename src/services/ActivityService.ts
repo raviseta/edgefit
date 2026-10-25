@@ -1,9 +1,10 @@
 import { buildCalendarDays, CALENDAR_DAYS, summarizeCalendar, type CalendarDay, type CalendarSummary } from '@/domain/calendar';
 import { addDays, addDaysToKey, fromDateKey, lastNDayKeys } from '@/domain/dates';
-import type { ActivityInsight, AppSettings, DailySummary, DateKey, Workout } from '@/domain/models';
+import { HEALTH_METRICS, type ActivityInsight, type AppSettings, type DailySummary, type DateKey, type Workout } from '@/domain/models';
 import type { HealthProviderKind } from '@/health/HealthService';
 import { buildPersonalInsights, PERSONAL_INSIGHT_LOOKBACK_DAYS, type PersonalInsights } from '@/intelligence/personalInsights';
 import type { Repositories } from '@/data/repositories';
+import { isValidStepGoal, suggestStepGoal, type GoalPreferences, type GoalSuggestion } from '@/domain/stepGoals';
 import { logger } from '@/lib/logger';
 import { HISTORY_DAYS, type SyncOutcome, type SyncService } from './SyncService';
 
@@ -24,6 +25,7 @@ export interface HistoryDay {
 
 /** Everything the screens render, read from local storage after a sync attempt. */
 export interface ActivitySnapshot {
+  stepGoals: { generation: number; preferences: GoalPreferences; suggestion: GoalSuggestion };
   settings: AppSettings;
   provider: HealthProviderKind;
   sync: SyncOutcome | { status: 'failed' };
@@ -47,6 +49,7 @@ export interface ActivitySnapshot {
  * (focus refetch + pull-to-refresh) share one sync.
  */
 export class ActivityService {
+  private generation = 0;
   private queue: Promise<unknown> = Promise.resolve();
   private inFlight: Promise<ActivitySnapshot> | null = null;
 
@@ -93,8 +96,42 @@ export class ActivityService {
 
   /** Wipes every EdgeFit table once any running sync has finished. Health data itself is untouched. */
   clearLocalData(): Promise<void> {
-    return this.exclusive(() => this.deps.repositories.clearAll());
+    this.generation += 1;
+    return this.exclusive(async () => {
+      await this.deps.repositories.clearAll();
+      // Also invalidate snapshots read while deletion was waiting behind a sync.
+      this.generation += 1;
+    });
   }
+
+  /** Uses the same queue as sync and deletion; old screen actions cannot restore cleared preferences. */
+  updateStepGoal(action: { kind: 'manual'; steps: number } | { kind: 'accept' | 'dismiss'; token: string }, generation: number): Promise<ActivitySnapshot> {
+    return this.exclusive(async () => {
+      if (generation !== this.generation) throw new Error('Local data changed. Reopen the goal card.');
+      const snapshot = await this.syncAndRead();
+      const { preferences, suggestion } = snapshot.stepGoals;
+      const now = this.deps.now?.() ?? new Date();
+      if (action.kind === 'manual') {
+        if (!isValidStepGoal(action.steps)) throw new Error('Enter a whole number from 1 to 100,000.');
+        preferences.goal = { activeSteps: action.steps, source: 'manual', updatedAt: now.toISOString() };
+        preferences.dismissedUntil = null;
+      } else {
+        if (suggestion.status !== 'suggested' || suggestion.token !== action.token) throw new Error('Activity changed. Review the refreshed suggestion before continuing.');
+        if (action.kind === 'accept') {
+          preferences.goal = { activeSteps: suggestion.suggestedSteps, source: 'accepted_suggestion', updatedAt: now.toISOString() };
+          preferences.dismissedUntil = null;
+        } else {
+          // A week of new complete days is required before another prompt.
+          preferences.dismissedUntil = addDaysToKey(suggestion.periodEndLocal, 8);
+        }
+      }
+      if (generation !== this.generation) throw new Error('Local data changed. Reopen the goal card.');
+      await this.deps.repositories.goals.save(preferences);
+      return this.read(snapshot.sync);
+    });
+  }
+
+  get goalGeneration(): number { return this.generation; }
 
   private exclusive<T>(task: () => Promise<T>): Promise<T> {
     const run = this.queue.then(task);
@@ -121,13 +158,14 @@ export class ActivityService {
     const lookbackStart = addDaysToKey(today, -PERSONAL_INSIGHT_LOOKBACK_DAYS);
 
     // One read covers both the 7-day history and the two-week insight window.
-    const [settings, stored, insights, workouts, lookbackWorkouts] = await Promise.all([
+    const [settings, stored, insights, workouts, lookbackWorkouts, preferences] = await Promise.all([
       repositories.settings.get(),
       repositories.summaries.getStoredRange(lookbackStart, today),
       repositories.insights.list(),
       repositories.workouts.list(),
       // `list()` is capped, so the insight window gets its own bounded query.
       repositories.workouts.listStartedBetween(fromDateKey(lookbackStart), fromDateKey(today)),
+      repositories.goals.get(),
     ]);
 
     const byDate = new Map(stored.map(({ complete: _complete, ...summary }) => [summary.date, summary]));
@@ -137,6 +175,9 @@ export class ActivityService {
       settings,
       provider: this.deps.provider,
       sync,
+      stepGoals: { generation: this.generation, preferences, suggestion: suggestStepGoal({ now, summaries: stored, preferences,
+        available: settings.analyticsEnabled && settings.healthDataEnabled && sync.status === 'synced' && !sync.failedMetrics.includes('steps'),
+      }) },
       today: history[history.length - 1]?.summary ?? null,
       history,
       insights: settings.analyticsEnabled ? insights : [],
@@ -145,6 +186,9 @@ export class ActivityService {
             now,
             summaries: stored,
             workouts: lookbackWorkouts,
+            unavailableMetrics: sync.status === 'synced'
+              ? HEALTH_METRICS.filter((metric) => sync.failedMetrics.includes(metric))
+              : HEALTH_METRICS,
           })
         : null,
       workouts,

@@ -2,6 +2,7 @@ import { addDaysToKey, toDateKey } from '@/domain/dates';
 import type { DateKey, StoredDailySummary, Workout } from '@/domain/models';
 import {
   buildPersonalInsights,
+  stepDayObservation,
   type PersonalInsights,
   type PersonalInsightsInput,
 } from '../personalInsights';
@@ -290,5 +291,49 @@ describe('buildPersonalInsights', () => {
     const summaries = [...steps(PREVIOUS, Array(7).fill(8000)), ...steps(CURRENT, Array(7).fill(9000))];
     const text = allText(build({ summaries, workouts: [workout('a', new Date(2026, 8, 24, 8))] }));
     expect(text).not.toMatch(/\b(AI|machine learning|predict|diagnos|medical|health risk|because of EdgeFit|significant)\b/i);
+  });
+});
+
+
+describe('step observation trust boundary', () => {
+  it('models recorded zero, missing, partial and unavailable separately', () => {
+    expect(stepDayObservation(row(CURRENT[0]!, { steps: 0 }))).toEqual({ status: 'recorded', value: 0 });
+    expect(stepDayObservation(row(CURRENT[0]!))).toEqual({ status: 'missing' });
+    expect(stepDayObservation(undefined)).toEqual({ status: 'missing' });
+    expect(stepDayObservation(row(CURRENT[0]!, { steps: 0, complete: NONE_COMPLETE }))).toEqual({ status: 'partial' });
+    expect(stepDayObservation(row(CURRENT[0]!, { steps: 0 }), false)).toEqual({ status: 'unavailable' });
+  });
+
+  it('the same week with recorded zeroes is observed; unavailable days never become inactive days', () => {
+    const previous = steps(PREVIOUS, Array(7).fill(4000));
+    const zeroes = build({ summaries: [...previous, ...steps(CURRENT, Array(7).fill(0))] });
+    const missing = build({ summaries: [...previous, ...steps(CURRENT, Array(7).fill(null))] });
+    const unavailable = build({ summaries: [...previous, ...steps(CURRENT, Array(7).fill(0))], unavailableMetrics: ['steps', 'activeCalories', 'activeMinutes', 'workouts'] });
+    expect(zeroes.weeklySteps).toMatchObject({ status: 'eligible', current: { validDays: 7, averageSteps: 0 }, percentChange: -1 });
+    expect(zeroes.activityConsistency).toMatchObject({ status: 'eligible', activeDays: 0, observedDays: 7, coverage: ['7 of 7 days with recorded activity data.'] });
+    for (const insights of [missing, unavailable]) {
+      expect(insights.weeklySteps).toMatchObject({ status: 'ineligible', current: { validDays: 0, averageSteps: null } });
+      expect(insights.activityConsistency.status).toBe('ineligible');
+    }
+  });
+
+  it('replacing three zero days with sync gaps changes coverage and comparison eligibility', () => {
+    const previous = steps(PREVIOUS, Array(7).fill(4000));
+    const zeroes = build({ summaries: [...previous, ...steps(CURRENT, [4000, 4000, 4000, 4000, 0, 0, 0])] });
+    const gaps = steps(CURRENT, Array(7).fill(4000)).map((day, i) => i < 4 ? day : { ...day, complete: NONE_COMPLETE });
+    const partial = build({ summaries: [...previous, ...gaps] });
+    expect(zeroes.weeklySteps).toMatchObject({ status: 'eligible', current: { validDays: 7, averageSteps: 16000 / 7 } });
+    expect(zeroes.activityConsistency).toMatchObject({ activeDays: 4, observedDays: 7 });
+    expect(partial.weeklySteps).toMatchObject({ status: 'ineligible', reason: 'insufficient-data', current: { validDays: 4, averageSteps: 4000 } });
+    expect(partial.activityConsistency).toMatchObject({ activeDays: 4, observedDays: 4 });
+  });
+
+  it('an unavailable step query cannot turn a mixed-metric zero day into inactivity', () => {
+    const summaries = [...steps(PREVIOUS, Array(7).fill(4000)), ...steps(CURRENT, Array(7).fill(0))];
+    summaries[summaries.length - 1] = { ...summaries[summaries.length - 1]!, activeMinutes: 0 };
+    const insights = build({ summaries, unavailableMetrics: ['steps', 'workouts'] });
+    expect(insights.weeklySteps).toMatchObject({ status: 'ineligible', reason: 'unavailable' });
+    expect(insights.activityConsistency).toMatchObject({ status: 'eligible', activeDays: 0, observedDays: 1 });
+    expect(insights.exerciseFrequency).toMatchObject({ status: 'ineligible', reason: 'unavailable', coverage: ['0 of 7 days checked for recorded workouts.'] });
   });
 });

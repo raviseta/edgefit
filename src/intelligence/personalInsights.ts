@@ -41,12 +41,12 @@ export interface PersonalInsightCard {
   explanation: string;
 }
 
-type Eligible<K extends string, T> = { kind: K; status: 'eligible'; card: PersonalInsightCard } & T;
-type Ineligible<K extends string, R extends string> = { kind: K; status: 'ineligible'; reason: R; message: string };
+type Eligible<K extends string, T> = { coverage: string[]; kind: K; status: 'eligible'; card: PersonalInsightCard } & T;
+type Ineligible<K extends string, R extends string> = { coverage: string[]; kind: K; status: 'ineligible'; reason: R; message: string };
 
 export type ActivityConsistency =
   | Eligible<'activity-consistency', { period: InsightPeriod; activeDays: number; observedDays: number }>
-  | Ineligible<'activity-consistency', 'no-complete-days'>;
+  | Ineligible<'activity-consistency', 'no-complete-days' | 'unavailable'>;
 
 export interface StepWeek {
   period: InsightPeriod;
@@ -69,11 +69,11 @@ export type WeeklyStepComparison =
         percentChange: number | null;
       }
     >
-  | (Ineligible<'weekly-steps', 'insufficient-data'> & { current: StepWeek; previous: StepWeek });
+  | (Ineligible<'weekly-steps', 'insufficient-data' | 'unavailable'> & { current: StepWeek; previous: StepWeek });
 
 export type ExerciseFrequency =
   | Eligible<'exercise-frequency', { period: InsightPeriod; workoutDays: number; workoutCount: number }>
-  | Ineligible<'exercise-frequency', 'incomplete-window'>;
+  | Ineligible<'exercise-frequency', 'incomplete-window' | 'unavailable'>;
 
 export interface PersonalInsights {
   /** False when nothing at all is stored for the last two weeks. */
@@ -89,6 +89,21 @@ export interface PersonalInsightsInput {
   summaries: StoredDailySummary[];
   /** Cached workouts; workouts outside the two-week window are ignored. */
   workouts: Workout[];
+  /** Metrics not read in the current refresh; cached values remain stored but are excluded here. */
+  unavailableMetrics?: readonly HealthMetric[];
+}
+
+/** Read availability and day completeness are separate from the recorded numeric value. */
+export type StepDayObservation =
+  | { status: 'recorded'; value: number }
+  | { status: 'missing' | 'partial' | 'unavailable' };
+
+export function stepDayObservation(row: StoredDailySummary | undefined, available = true): StepDayObservation {
+  if (!available) return { status: 'unavailable' };
+  if (!row) return { status: 'missing' };
+  if (!row.complete.steps) return { status: 'partial' };
+  if (row.steps === null || !Number.isFinite(row.steps) || row.steps < 0) return { status: 'missing' };
+  return { status: 'recorded', value: row.steps };
 }
 
 export function buildPersonalInsights(input: PersonalInsightsInput): PersonalInsights {
@@ -104,18 +119,19 @@ export function buildPersonalInsights(input: PersonalInsightsInput): PersonalIns
     if (!lookback.has(key) || workout.durationMinutes < MIN_WORKOUT_MINUTES) continue;
     workoutDays.set(key, (workoutDays.get(key) ?? 0) + 1);
   }
+  const unavailable = new Set(input.unavailableMetrics);
   const completeRow: RowLookup = (key, metric) => {
     const row = rows.get(key);
-    return row?.complete[metric] ? row : null;
+    return !unavailable.has(metric) && row?.complete[metric] ? row : null;
   };
 
   const hasAnyHistory = [...rows.values()].some(hasAnyMetric) || workoutDays.size > 0;
 
   return {
     hasAnyHistory,
-    activityConsistency: activityConsistency(current, completeRow, workoutDays),
-    weeklySteps: weeklySteps(current, previous, completeRow),
-    exerciseFrequency: exerciseFrequency(current, completeRow, workoutDays),
+    activityConsistency: activityConsistency(current, completeRow, workoutDays, unavailable),
+    weeklySteps: weeklySteps(current, previous, (key) => stepDayObservation(rows.get(key), !unavailable.has('steps')), unavailable.has('steps')),
+    exerciseFrequency: exerciseFrequency(current, completeRow, workoutDays, unavailable.has('workouts')),
   };
 }
 
@@ -125,7 +141,7 @@ type RowLookup = (key: DateKey, metric: HealthMetric) => StoredDailySummary | nu
 const QUANTITY_METRICS = ['steps', 'activeCalories', 'activeMinutes'] as const;
 type PeriodKeys = InsightPeriod & { keys: DateKey[] };
 
-function activityConsistency(current: PeriodKeys, completeRow: RowLookup, workoutDays: Map<DateKey, number>): ActivityConsistency {
+function activityConsistency(current: PeriodKeys, completeRow: RowLookup, workoutDays: Map<DateKey, number>, unavailable: Set<HealthMetric>): ActivityConsistency {
   let observedDays = 0;
   let activeDays = 0;
   for (const key of current.keys) {
@@ -140,17 +156,21 @@ function activityConsistency(current: PeriodKeys, completeRow: RowLookup, workou
     if (values.some((v) => v > 0) || workouts > 0) activeDays += 1;
   }
 
+  const coverage = [`${observedDays} of ${INSIGHT_WINDOW_DAYS} days with recorded activity data.`];
+  if (unavailable.size > 0) coverage.push('Metrics unavailable in this refresh are excluded.');
   if (observedDays === 0) {
     return {
       kind: 'activity-consistency',
+      coverage,
       status: 'ineligible',
-      reason: 'no-complete-days',
-      message: 'Active days will appear once a full day of activity data has been saved.',
+      reason: unavailable.size > 0 ? 'unavailable' : 'no-complete-days',
+      message: unavailable.size > 0 ? 'Active days are unavailable until activity data can be refreshed.' : 'Active days will appear once a full day of activity data has been saved.',
     };
   }
 
   return {
     kind: 'activity-consistency',
+    coverage,
     status: 'eligible',
     period: strip(current),
     activeDays,
@@ -161,7 +181,7 @@ function activityConsistency(current: PeriodKeys, completeRow: RowLookup, workou
       period: current.label,
       details: [],
       explanation:
-        'Counts days with any recorded steps, active energy, exercise minutes or a workout. Days without data on this device are not counted as inactive. Today is not included.',
+        'Counts days with any recorded steps, active energy, exercise minutes or a workout. Days without data on this device are not counted as inactive. Recorded zeroes count as observed days. Partial values and metrics unavailable in this refresh are excluded. Today is not included.',
     },
   };
 }
@@ -169,17 +189,23 @@ function activityConsistency(current: PeriodKeys, completeRow: RowLookup, workou
 function weeklySteps(
   current: PeriodKeys,
   previous: PeriodKeys,
-  completeRow: RowLookup,
+  observeSteps: (key: DateKey) => StepDayObservation,
+  unavailable: boolean,
 ): WeeklyStepComparison {
-  const cur = stepWeek(current, completeRow);
-  const prev = stepWeek(previous, completeRow);
+  const cur = stepWeek(current, observeSteps);
+  const prev = stepWeek(previous, observeSteps);
+  const coverage = [
+    `Last 7 days: ${cur.validDays} of ${INSIGHT_WINDOW_DAYS} days with complete step data.`,
+    `Week before: ${prev.validDays} of ${INSIGHT_WINDOW_DAYS} days with complete step data.`,
+  ];
 
   if (cur.averageSteps === null || prev.averageSteps === null || cur.validDays < MIN_STEP_DAYS_PER_WEEK || prev.validDays < MIN_STEP_DAYS_PER_WEEK) {
     return {
       kind: 'weekly-steps',
+      coverage,
       status: 'ineligible',
-      reason: 'insufficient-data',
-      message: `A weekly step comparison needs at least ${MIN_STEP_DAYS_PER_WEEK} days with recorded steps in each week (last 7 days: ${cur.validDays}, week before: ${prev.validDays}).`,
+      reason: unavailable ? 'unavailable' : 'insufficient-data',
+      message: unavailable ? 'Weekly steps are unavailable until step data can be refreshed. Saved values have been kept.' : `A weekly step comparison needs at least ${MIN_STEP_DAYS_PER_WEEK} days with recorded steps in each week (last 7 days: ${cur.validDays}, week before: ${prev.validDays}).`,
       current: cur,
       previous: prev,
     };
@@ -207,6 +233,7 @@ function weeklySteps(
 
   return {
     kind: 'weekly-steps',
+    coverage,
     status: 'eligible',
     current: cur,
     previous: prev,
@@ -223,7 +250,7 @@ function weeklySteps(
           ? 'No percentage change is shown because the week before averaged 0 steps.'
           : `Change: ${formatPercent(roundedPercent)}.`,
       ],
-      explanation: `Averages only the days with recorded steps in each week; days without step data are left out, not counted as zero. Needs at least ${MIN_STEP_DAYS_PER_WEEK} such days in each week. Today is not included.`,
+      explanation: `Averages only the days with recorded steps in each week; days without step data are left out, not counted as zero. Recorded zeroes count; partial values and steps unavailable in this refresh are excluded. Needs at least ${MIN_STEP_DAYS_PER_WEEK} such days in each week. Today is not included.`,
     },
   };
 }
@@ -232,15 +259,19 @@ function exerciseFrequency(
   current: PeriodKeys,
   completeRow: RowLookup,
   workoutDays: Map<DateKey, number>,
+  unavailable: boolean,
 ): ExerciseFrequency {
   // Workouts are cached by the same sync that writes the daily rows; until a sync has run
   // after the whole week ended, workouts late in the week may be missing.
-  if (!current.keys.every((key) => completeRow(key, 'workouts') !== null)) {
+  const checkedDays = current.keys.filter((key) => completeRow(key, 'workouts') !== null).length;
+  const coverage = [`${checkedDays} of ${INSIGHT_WINDOW_DAYS} days checked for recorded workouts.`];
+  if (checkedDays < INSIGHT_WINDOW_DAYS) {
     return {
       kind: 'exercise-frequency',
+      coverage,
       status: 'ineligible',
-      reason: 'incomplete-window',
-      message: 'Workout days will appear once the last 7 days have been fully synced.',
+      reason: unavailable ? 'unavailable' : 'incomplete-window',
+      message: unavailable ? 'Workout days are unavailable until workout data can be refreshed. Saved values have been kept.' : 'Workout days will appear once the last 7 days have been fully synced.',
     };
   }
 
@@ -249,6 +280,7 @@ function exerciseFrequency(
 
   return {
     kind: 'exercise-frequency',
+    coverage,
     status: 'eligible',
     period: strip(current),
     workoutDays: days.length,
@@ -261,15 +293,15 @@ function exerciseFrequency(
           : `You recorded workouts on ${plural(days.length, 'different day')} in the last ${INSIGHT_WINDOW_DAYS} days.`,
       period: current.label,
       details: days.length === 0 ? [] : [`${plural(workoutCount, 'workout')} in total.`],
-      explanation: `Counts days with at least one workout of ${MIN_WORKOUT_MINUTES} minute or longer saved to Health. Several workouts on the same day count once. Exercise that wasn't saved as a workout isn't included. Today is not included.`,
+      explanation: `Counts days with at least one workout of ${MIN_WORKOUT_MINUTES} minute or longer saved to Health. Several workouts on the same day count once. Exercise that wasn't saved as a workout isn't included. Health does not reveal denied read access; no recorded workouts does not establish inactivity. Today is not included.`,
     },
   };
 }
 
-function stepWeek(p: PeriodKeys, completeRow: RowLookup): StepWeek {
+function stepWeek(p: PeriodKeys, observation: (key: DateKey) => StepDayObservation): StepWeek {
   const steps = p.keys.flatMap((key) => {
-    const value = completeRow(key, 'steps')?.steps;
-    return value === null || value === undefined ? [] : [value];
+    const day = observation(key);
+    return day.status === 'recorded' ? [day.value] : [];
   });
   return {
     period: strip(p),
