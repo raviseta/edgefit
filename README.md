@@ -212,6 +212,15 @@ Notes:
   system, outside EdgeFit's control, and the Privacy Center says so.
 - Development builds load JavaScript from the local Metro server; release builds bundle it.
 
+## Adaptive activity goals
+
+The Dashboard supports optional daily step goals, manual edits and local,
+rule-based suggestions using at least 10 valid days in the previous 14 complete
+local days. Suggestions use median steps +5%, rounded to 250, with upward changes
+capped at 10% of an existing goal. Goals change only by explicit choice. Manual
+choices pause suggestions; Not now pauses them for a week. Clear Local Data also
+clears goals. See [rules, storage and device checks](docs/ADAPTIVE_GOALS.md).
+
 ## Activity Score
 
 ```text
@@ -259,6 +268,16 @@ Data semantics:
   and never refreshed is treated as partial and left out.
 - **Sync depth.** Each sync rewrites today plus the 14 days before it
   (`ACTIVITY_SYNC_DAYS = 15`), so the two-week window is refreshed from Health every time.
+- Each insight shows coverage beside its period, including both weeks for the step
+  comparison. Active-day coverage counts days with any complete, recorded activity
+  metric; a complete recorded zero counts as observed. Workout coverage says how many
+  dates were checked for recorded workouts, not whether read access was granted.
+- Metrics unavailable in the latest refresh are excluded from insight calculations
+  and coverage, even if older complete values remain cached. A failed step query
+  pauses the weekly comparison; successfully refreshed energy or exercise data can
+  still contribute to active days. Saved values and their completeness are preserved
+  for recovery. HealthKit does not reveal denied read access, so missing values are
+  unavailable data, never an inferred zero.
 - When an insight isn't shown, the Dashboard says why (e.g. the valid-day counts for each
   week) instead of showing substitute content. Turning insights off hides the section.
 - Limitations: workouts only include exercise saved to Health as a workout; HealthKit does

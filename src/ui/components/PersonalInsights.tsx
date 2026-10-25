@@ -26,9 +26,10 @@ export function PersonalInsightsSection({ insights }: { insights: PersonalInsigh
       ) : (
         results.map((result) =>
           result.status === 'eligible' ? (
-            <PersonalInsightCardView key={result.kind} testID={`personal-insight-${result.kind}`} card={result.card} />
+            <PersonalInsightCardView key={result.kind} testID={`personal-insight-${result.kind}`} card={result.card} coverage={result.coverage} />
           ) : (
             <Card key={result.kind} testID={`personal-insight-unavailable-${result.kind}`}>
+              <InsightCoverage lines={result.coverage} />
               <Text style={[typography.caption, { color: colors.textMuted }]}>{result.message}</Text>
             </Card>
           ),
@@ -38,7 +39,14 @@ export function PersonalInsightsSection({ insights }: { insights: PersonalInsigh
   );
 }
 
-function PersonalInsightCardView({ card, testID }: { card: PersonalInsightCard; testID: string }) {
+function InsightCoverage({ lines }: { lines: string[] }) {
+  const { colors } = useTheme();
+  return <View style={{ gap: spacing.xs, marginVertical: spacing.xs }}>
+    {lines.map((line) => <Text key={line} style={[typography.caption, { color: colors.textMuted }]}>{line}</Text>)}
+  </View>;
+}
+
+function PersonalInsightCardView({ card, coverage, testID }: { card: PersonalInsightCard; coverage: string[]; testID: string }) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
   return (
@@ -46,6 +54,7 @@ function PersonalInsightCardView({ card, testID }: { card: PersonalInsightCard; 
       <Text style={[typography.overline, { color: colors.accent }]}>{card.title}</Text>
       <Text style={[typography.headline, styles.observation, { color: colors.text }]}>{card.observation}</Text>
       <Text style={[typography.caption, { color: colors.textMuted }]}>{card.period}</Text>
+      <InsightCoverage lines={coverage} />
       {card.details.map((detail) => (
         <Text key={detail} style={[typography.caption, styles.detail, { color: colors.textMuted }]}>
           {detail}

@@ -4,6 +4,7 @@ import { hasAnyMetric } from '@/domain/models';
 import { EMPTY_VALUE, formatDuration, formatEnergyValue, formatMetric, greeting } from '@/lib/format';
 import type { ActivitySnapshot } from '@/services/ActivityService';
 import { InsightCard, MetricCard, MetricGrid, ScoreCard } from '../components/ActivityCards';
+import { StepGoals } from '../components/StepGoals';
 import { PersonalInsightsSection } from '../components/PersonalInsights';
 import { Screen, SectionTitle } from '../components/primitives';
 import { SnapshotNotices } from '../components/SnapshotNotices';
@@ -31,16 +32,16 @@ export function DashboardScreen({ now = () => new Date() }: { now?: () => Date }
           {now().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </Text>
       </View>
-      {query.isError ? <ErrorState onRetry={() => query.refetch()} /> : <DashboardContent snapshot={query.data} />}
+      {query.isError ? <ErrorState onRetry={() => query.refetch()} /> : <DashboardContent snapshot={query.data} refreshing={query.isRefetching} />}
     </Screen>
   );
 }
 
-export function DashboardContent({ snapshot }: { snapshot: ActivitySnapshot }) {
+export function DashboardContent({ snapshot, refreshing = false }: { snapshot: ActivitySnapshot; refreshing?: boolean }) {
   const { today, settings, insights } = snapshot;
 
   if (!settings.healthDataEnabled) {
-    return <PermissionDeniedState />;
+    return <><PermissionDeniedState /><StepGoals snapshot={snapshot} refreshing={refreshing} /></>;
   }
 
   const isEmpty = !today || (!hasAnyMetric(today) && today.workoutCount === 0);
@@ -50,6 +51,7 @@ export function DashboardContent({ snapshot }: { snapshot: ActivitySnapshot }) {
   return (
     <>
       <SnapshotNotices snapshot={snapshot} />
+      <StepGoals snapshot={snapshot} refreshing={refreshing} />
       <SectionTitle>Today&apos;s Activity</SectionTitle>
       {isEmpty || !today ? (
         <EmptyState

@@ -22,6 +22,7 @@ export function Screen({
       style={{ backgroundColor: colors.background }}
       contentContainerStyle={styles.screenContent}
       contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
       refreshControl={
         onRefresh ? (
           <RefreshControl refreshing={refreshing ?? false} onRefresh={onRefresh} tintColor={colors.textMuted} />

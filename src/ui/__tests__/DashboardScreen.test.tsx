@@ -104,15 +104,19 @@ describe('DashboardScreen – Personal Activity Insights', () => {
     const active = within(screen.getByTestId('personal-insight-activity-consistency'));
     expect(active.getByText('You recorded activity on 7 of the last 7 days.')).toBeTruthy();
     expect(active.getByText('Sep 23 – Sep 29')).toBeTruthy();
+    expect(active.getByText('7 of 7 days with recorded activity data.')).toBeTruthy();
 
     const steps = within(screen.getByTestId('personal-insight-weekly-steps'));
     expect(steps.getByText('Your recorded steps increased compared with the previous week.')).toBeTruthy();
     expect(steps.getByText('Sep 23 – Sep 29 vs Sep 16 – Sep 22')).toBeTruthy();
     expect(steps.getByText('Last 7 days: 9,000 steps a day on average (7 of 7 days with steps).')).toBeTruthy();
     expect(steps.getByText('Change: +13%.')).toBeTruthy();
+    expect(steps.getByText('Last 7 days: 7 of 7 days with complete step data.')).toBeTruthy();
+    expect(steps.getByText('Week before: 7 of 7 days with complete step data.')).toBeTruthy();
 
     const workouts = within(screen.getByTestId('personal-insight-exercise-frequency'));
     expect(workouts.getByText('You recorded workouts on 3 different days in the last 7 days.')).toBeTruthy();
+    expect(workouts.getByText('7 of 7 days checked for recorded workouts.')).toBeTruthy();
   });
 
   it('explains a calculation on demand', async () => {
@@ -153,13 +157,16 @@ describe('DashboardScreen – Personal Activity Insights', () => {
     expect(screen.queryByTestId('personal-insight-exercise-frequency')).toBeNull();
   });
 
-  it('keeps showing insights from saved data when the sync fails, alongside the warning', async () => {
+  it('shows zero current coverage and explains unavailable insights when the sync fails', async () => {
     const { services, health } = await createTestServices({ fixture: fixtures.twoWeeks });
     await services.activity.refresh();
     jest.spyOn(health, 'isAvailable').mockRejectedValue(new Error('down'));
     await renderWithServices(<DashboardScreen now={testNow} />, services);
     expect(await screen.findByTestId('banner-sync-failed')).toBeTruthy();
-    expect(screen.getByTestId('personal-insight-weekly-steps')).toBeTruthy();
+    expect(screen.queryByTestId('personal-insight-weekly-steps')).toBeNull();
+    const note = within(screen.getByTestId('personal-insight-unavailable-weekly-steps'));
+    expect(note.getByText('Last 7 days: 0 of 7 days with complete step data.')).toBeTruthy();
+    expect(note.getByText('Weekly steps are unavailable until step data can be refreshed. Saved values have been kept.')).toBeTruthy();
   });
 
   it('is hidden when insights are turned off', async () => {

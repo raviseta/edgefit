@@ -75,23 +75,31 @@ describe('ActivityService personal insights (from saved data)', () => {
     expect(snapshot.personalInsights?.exerciseFrequency.status).toBe('ineligible');
   });
 
-  it('a failed query keeps complete days complete and reuses their saved values', async () => {
+  it('a failed query preserves complete saved values but excludes the unavailable metrics from insights', async () => {
     const { services, health } = await createTestServices({ fixture: fixtures.twoWeeks });
-    const before = (await services.activity.refresh()).personalInsights;
+    await services.activity.refresh();
+    const before = await services.repositories.summaries.getStoredRange('2026-09-16', '2026-09-29');
     jest.spyOn(health, 'getSteps').mockRejectedValue(new Error('down'));
     jest.spyOn(health, 'getWorkouts').mockRejectedValue(new Error('down'));
     const { sync, personalInsights } = await services.activity.refresh();
     expect(sync).toEqual({ status: 'synced', failedMetrics: ['steps', 'workouts'] });
-    expect(personalInsights).toEqual(before);
+    expect(await services.repositories.summaries.getStoredRange('2026-09-16', '2026-09-29')).toEqual(before);
+    expect(personalInsights?.weeklySteps).toMatchObject({ status: 'ineligible', reason: 'unavailable', current: { validDays: 0, averageSteps: null } });
+    expect(personalInsights?.exerciseFrequency).toMatchObject({ status: 'ineligible', reason: 'unavailable' });
+    // Other successfully refreshed metrics can still establish observed activity days.
+    expect(personalInsights?.activityConsistency).toMatchObject({ status: 'eligible', observedDays: 7 });
   });
 
-  it('when the whole sync fails, insights come from the rows saved by the last complete sync', async () => {
+  it('when the whole sync fails, cached history is preserved but does not establish current insight coverage', async () => {
     const { services, health } = await createTestServices({ fixture: fixtures.twoWeeks });
-    const before = (await services.activity.refresh()).personalInsights;
+    await services.activity.refresh();
+    const before = await services.repositories.summaries.getStoredRange('2026-09-16', '2026-09-29');
     jest.spyOn(health, 'isAvailable').mockRejectedValue(new Error('down'));
     const after = await services.activity.refresh();
     expect(after.sync).toEqual({ status: 'failed' });
-    expect(after.personalInsights).toEqual(before);
+    expect(await services.repositories.summaries.getStoredRange('2026-09-16', '2026-09-29')).toEqual(before);
+    expect(after.personalInsights?.weeklySteps).toMatchObject({ status: 'ineligible', reason: 'unavailable', current: { validDays: 0 } });
+    expect(after.personalInsights?.activityConsistency).toMatchObject({ status: 'ineligible', reason: 'unavailable' });
   });
 
   it.each(['failed', 'health-disabled', 'unavailable'] as const)(
@@ -117,9 +125,11 @@ describe('ActivityService personal insights (from saved data)', () => {
       }
       const snapshot = await restarted.activity.refresh();
       expect(snapshot.sync.status).toBe(outcome);
-      expect(snapshot.personalInsights?.weeklySteps).toMatchObject({ current: { validDays: 6 } });
-      // Workouts were read fresh after Sep 29 ended, so the failed steps query doesn't hold them back.
-      expect(snapshot.personalInsights?.exerciseFrequency.status).toBe('eligible');
+      expect(snapshot.personalInsights?.weeklySteps).toMatchObject({ status: 'ineligible', reason: 'unavailable', current: { validDays: 0 } });
+      expect(snapshot.personalInsights?.exerciseFrequency.status).toBe('ineligible');
+      const rows = await restarted.repositories.summaries.getStoredRange('2026-09-23', '2026-09-29');
+      expect(rows.filter((row) => row.complete.steps).length).toBe(6);
+      expect(rows.filter((row) => row.complete.workouts).length).toBe(7);
 
       available.mockRestore();
       steps.mockRestore();
@@ -151,7 +161,9 @@ describe('ActivityService personal insights (from saved data)', () => {
     now = new Date(TEST_NOW.getTime());
     jest.spyOn(health, 'isAvailable').mockRejectedValue(new Error('offline'));
     const { personalInsights } = await services.activity.refresh();
-    expect(personalInsights?.weeklySteps).toMatchObject({ current: { validDays: 6 } });
+    expect(personalInsights?.weeklySteps).toMatchObject({ current: { validDays: 0 } });
+    const [stored] = await services.repositories.summaries.getStoredRange('2026-09-29', '2026-09-29');
+    expect(stored?.complete.steps).toBe(false);
   });
 
   it('a day marked complete while the clock was ahead is reset by the next sync, even one with failures', async () => {
@@ -178,9 +190,11 @@ describe('ActivityService personal insights (from saved data)', () => {
     jest.spyOn(health, 'isAvailable').mockRejectedValue(new Error('down'));
     const { personalInsights } = await services.activity.refresh();
 
-    // Sep 29 was saved mid-day, so the current week has 6 complete days.
-    expect(personalInsights?.activityConsistency).toMatchObject({ status: 'eligible', observedDays: 6 });
-    expect(personalInsights?.weeklySteps).toMatchObject({ current: { validDays: 6 } });
-    expect(personalInsights?.exerciseFrequency).toMatchObject({ status: 'ineligible', reason: 'incomplete-window' });
+    // Saved completeness survives the failure, but unavailable reads add no coverage.
+    const rows = await services.repositories.summaries.getStoredRange('2026-09-23', '2026-09-29');
+    expect(rows.filter((row) => row.complete.steps).length).toBe(6);
+    expect(personalInsights?.activityConsistency).toMatchObject({ status: 'ineligible', reason: 'unavailable' });
+    expect(personalInsights?.weeklySteps).toMatchObject({ current: { validDays: 0 } });
+    expect(personalInsights?.exerciseFrequency).toMatchObject({ status: 'ineligible', reason: 'unavailable' });
   });
 });
