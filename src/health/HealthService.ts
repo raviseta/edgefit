@@ -1,4 +1,4 @@
-import type { DateKey } from '@/domain/models';
+import type { DateKey, HourlySteps } from '@/domain/models';
 
 /**
  * Platform-independent boundary to a health data store (HealthKit today,
@@ -53,6 +53,8 @@ export interface HealthService {
   requestAuthorization(): Promise<AuthorizationResult>;
 
   getSteps(startDate: Date, endDate: Date): Promise<StepData[]>;
+  /** Steps per local clock hour, for comparing today's pace with the same time on other days. */
+  getHourlySteps(startDate: Date, endDate: Date): Promise<HourlySteps[]>;
   getActiveCalories(startDate: Date, endDate: Date): Promise<CalorieData[]>;
   getActiveMinutes(startDate: Date, endDate: Date): Promise<ActiveMinuteData[]>;
   getWorkouts(startDate: Date, endDate: Date): Promise<WorkoutData[]>;

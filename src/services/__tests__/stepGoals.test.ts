@@ -70,3 +70,24 @@ it('falls back safely for corrupt persisted goals', async () => {
   await db.run('INSERT INTO settings (key, value) VALUES (?, ?)', ['stepGoalPreferences', '{"goal":{"activeSteps":-1},"dismissedUntil":null}']);
   expect(await services.repositories.goals.get()).toEqual({ goal: null, dismissedUntil: null });
 });
+it('scores days against the goal at once and on every later sync', async () => {
+  const { services } = await createTestServices();
+  const before = await services.activity.refresh();
+  expect(before.today).toMatchObject({ steps: 6420, stepTarget: 8000 });
+  expect(before.stepGoals.streak).toBeNull();
+
+  const updated = await services.activity.updateStepGoal({ kind: 'manual', steps: 5000 }, 0);
+  expect(updated.today).toMatchObject({ stepTarget: 5000, activityScore: 100 });
+  expect(updated.history.every((d) => d.summary?.stepTarget === 5000)).toBe(true);
+  expect((await services.activity.refresh()).today).toMatchObject({ stepTarget: 5000, activityScore: 100 });
+});
+it('counts days in a row at the goal on the Dashboard and the calendar', async () => {
+  const { services } = await createTestServices();
+  await services.activity.refresh();
+  // Every fixture day, today included, has at least 6,420 steps; the day before them has none.
+  const updated = await services.activity.updateStepGoal({ kind: 'manual', steps: 6000 }, 0);
+  expect(updated.stepGoals.streak).toBe(8);
+  expect((await services.activity.getCalendar()).goalStreak).toBe(8);
+  const higher = await services.activity.updateStepGoal({ kind: 'manual', steps: 9000 }, 0);
+  expect(higher.stepGoals.streak).toBe(0);
+});

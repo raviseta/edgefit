@@ -46,7 +46,7 @@ export function CalendarScreen({ now = () => new Date() }: { now?: () => Date })
 }
 
 export function CalendarContent({ calendar, now }: { calendar: CalendarSnapshot; now: Date }) {
-  const { days, summary, settings } = calendar;
+  const { days, summary, settings, goalStreak } = calendar;
   const today = days[days.length - 1]?.date ?? '';
   const [selected, setSelected] = useState(today);
   const { colors } = useTheme();
@@ -67,7 +67,7 @@ export function CalendarContent({ calendar, now }: { calendar: CalendarSnapshot;
           message="Days appear here once EdgeFit has saved activity from Health. Days without data are shown as outlines, never as zero."
         />
       ) : (
-        <CalendarHeader summary={summary} range={first && last ? rangeLabel(first.date, last.date) : ''} now={now} />
+        <CalendarHeader summary={summary} goalStreak={goalStreak} range={first && last ? rangeLabel(first.date, last.date) : ''} now={now} />
       )}
 
       <Card style={styles.calendarCard}>
@@ -95,7 +95,17 @@ export function CalendarContent({ calendar, now }: { calendar: CalendarSnapshot;
   );
 }
 
-function CalendarHeader({ summary, range, now }: { summary: CalendarSummary; range: string; now: Date }) {
+function CalendarHeader({
+  summary,
+  goalStreak,
+  range,
+  now,
+}: {
+  summary: CalendarSummary;
+  goalStreak: number | null;
+  range: string;
+  now: Date;
+}) {
   const { colors } = useTheme();
   const average = summary.averageScore === null ? null : Math.round(summary.averageScore);
   return (
@@ -118,6 +128,11 @@ function CalendarHeader({ summary, range, now }: { summary: CalendarSummary; ran
         {summary.streak > 0 ? (
           <View accessible accessibilityLabel={`Current streak: ${summary.streak} day${summary.streak === 1 ? '' : 's'}`}>
             <Chip label={`${summary.streak}-day streak`} color={colors.metricWorkouts} />
+          </View>
+        ) : null}
+        {goalStreak ? (
+          <View accessible accessibilityLabel={`Step goal reached ${goalStreak} day${goalStreak === 1 ? '' : 's'} in a row`}>
+            <Chip label={`${goalStreak}-day goal streak`} color={colors.metricSteps} />
           </View>
         ) : null}
         {summary.best ? (
@@ -144,7 +159,7 @@ function DayDetails({ day, now, unit }: { day: CalendarDay; now: Date; unit: Ene
   // Same formula and inputs as the stored score, so the breakdown always adds up to it.
   const breakdown =
     s && day.score !== null
-      ? calculateActivityScore({ steps: s.steps, activeMinutes: s.activeMinutes, workoutMinutes: s.workoutMinutes })
+      ? calculateActivityScore({ steps: s.steps, activeMinutes: s.activeMinutes, workoutMinutes: s.workoutMinutes }, s.stepTarget)
       : null;
   const workoutMinutes = day.workouts.reduce((sum, w) => sum + w.durationMinutes, 0);
 
@@ -224,10 +239,10 @@ function DayDetails({ day, now, unit }: { day: CalendarDay; now: Date; unit: Ene
         </View>
       )}
 
-      {breakdown ? (
+      {breakdown && s ? (
         <View testID="calendar-score-breakdown" style={styles.breakdown}>
           <Text style={[typography.overline, { color: colors.textMuted }]}>Score breakdown</Text>
-          <BreakdownBar label={`Steps (target ${formatNumber(SCORE_TARGETS.steps)})`} value={breakdown.breakdown.steps} max={SCORE_WEIGHTS.steps} />
+          <BreakdownBar label={`Steps (target ${formatNumber(s.stepTarget)})`} value={breakdown.breakdown.steps} max={SCORE_WEIGHTS.steps} />
           <BreakdownBar label={`Active minutes (target ${SCORE_TARGETS.activeMinutes})`} value={breakdown.breakdown.activeMinutes} max={SCORE_WEIGHTS.activeMinutes} />
           <BreakdownBar label={`Workout minutes (target ${SCORE_TARGETS.workoutMinutes})`} value={breakdown.breakdown.workout} max={SCORE_WEIGHTS.workout} />
           <Text style={[typography.caption, { color: colors.textMuted }]}>

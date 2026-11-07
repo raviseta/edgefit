@@ -16,6 +16,7 @@ const summary = (date: string, overrides: Partial<DailySummary> = {}): DailySumm
   activeMinutes: 20,
   workoutCount: 0,
   workoutMinutes: 0,
+  stepTarget: 8000,
   activityScore: 45,
   ...overrides,
 });
@@ -50,6 +51,41 @@ describe('migrations', () => {
       { steps: true, activeCalories: true, activeMinutes: true, workouts: true },
       { steps: false, activeCalories: false, activeMinutes: false, workouts: false },
     ]);
+  });
+});
+
+describe('migration 3', () => {
+  it('keeps the 8,000 step target for existing rows and renames the insights setting', async () => {
+    const db = new NodeSqliteDatabase();
+    await db.exec(MIGRATIONS[0]!);
+    await db.exec(MIGRATIONS[1]!);
+    await db.exec('PRAGMA user_version = 2');
+    await db.run('INSERT INTO daily_summaries (date, steps, activity_score, updated_at) VALUES (?, ?, ?, ?)', [
+      '2026-09-28',
+      5000,
+      25,
+      new Date(2026, 8, 29).toISOString(),
+    ]);
+    await db.run('INSERT INTO settings (key, value) VALUES (?, ?)', ['analyticsEnabled', 'false']);
+    await migrate(db);
+
+    const repos = createRepositories(db);
+    expect(await repos.summaries.getByDate('2026-09-28')).toMatchObject({ stepTarget: 8000, activityScore: 25 });
+    expect((await repos.settings.get()).insightsEnabled).toBe(false);
+  });
+});
+
+describe('SummaryRepository.updateScores', () => {
+  it('changes only the score and target, not the metrics or completeness', async () => {
+    const { repos } = await setup();
+    await repos.summaries.upsertMany([summary('2026-09-28')], new Date(2026, 8, 30));
+    const before = (await repos.summaries.getStoredRange('2026-09-28', '2026-09-28'))[0]!;
+    await repos.summaries.updateScores([{ ...before, steps: 1, stepTarget: 5000, activityScore: 60 }]);
+    expect((await repos.summaries.getStoredRange('2026-09-28', '2026-09-28'))[0]).toEqual({
+      ...before,
+      stepTarget: 5000,
+      activityScore: 60,
+    });
   });
 });
 
@@ -135,11 +171,11 @@ describe('SettingsRepository / privacy settings', () => {
   it('persists partial updates', async () => {
     const { repos } = await setup();
     await repos.settings.update({ healthDataEnabled: true, energyUnit: 'kJ' });
-    await repos.settings.update({ analyticsEnabled: false });
+    await repos.settings.update({ insightsEnabled: false });
     expect(await repos.settings.get()).toEqual({
       ...DEFAULT_SETTINGS,
       healthDataEnabled: true,
-      analyticsEnabled: false,
+      insightsEnabled: false,
       energyUnit: 'kJ',
     });
   });
@@ -147,7 +183,7 @@ describe('SettingsRepository / privacy settings', () => {
   it('falls back to defaults for corrupt or mistyped values', async () => {
     const { db, repos } = await setup();
     await db.run("INSERT INTO settings (key, value) VALUES ('healthDataEnabled', 'not json')");
-    await db.run(`INSERT INTO settings (key, value) VALUES ('analyticsEnabled', '"yes"')`);
+    await db.run(`INSERT INTO settings (key, value) VALUES ('insightsEnabled', '"yes"')`);
     await db.run(`INSERT INTO settings (key, value) VALUES ('energyUnit', '"furlongs"')`);
     expect(await repos.settings.get()).toEqual(DEFAULT_SETTINGS);
   });

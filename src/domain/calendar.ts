@@ -1,6 +1,6 @@
 import { workoutDateKey } from '@/health/normalization';
-import { lastNDayKeys, toDateKey } from './dates';
-import type { DailySummary, DateKey, Workout } from './models';
+import { addDaysToKey, lastNDayKeys, toDateKey } from './dates';
+import type { DailySummary, DateKey, StoredDailySummary, Workout } from './models';
 
 /**
  * 30-day activity calendar: one entry per local calendar day, built from the
@@ -109,6 +109,23 @@ function currentStreak(days: CalendarDay[]): number {
   let streak = 0;
   for (; i >= 0 && days[i]!.score !== null; i -= 1) streak += 1;
   return streak;
+}
+
+/**
+ * Consecutive days whose step count reached `goalSteps`, ending yesterday, plus today once it
+ * reaches the goal (today is still in progress, so it can't break the streak). A past day only
+ * counts when its step count is complete; an unknown day ends the streak rather than extending it.
+ */
+export function goalStreak(summaries: StoredDailySummary[], goalSteps: number, now: Date): number {
+  const byDate = new Map(summaries.map((s) => [s.date, s]));
+  const today = toDateKey(now);
+  const todaySteps = byDate.get(today)?.steps ?? null;
+  let streak = todaySteps !== null && todaySteps >= goalSteps ? 1 : 0;
+  for (let key = addDaysToKey(today, -1); ; key = addDaysToKey(key, -1)) {
+    const day = byDate.get(key);
+    if (!day?.complete.steps || day.steps === null || day.steps < goalSteps) return streak;
+    streak += 1;
+  }
 }
 
 /** True when nothing at all is stored for the period: no metrics, scores or workouts. */

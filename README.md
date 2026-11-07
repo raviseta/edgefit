@@ -152,7 +152,8 @@ Local persistence        src/data – SQLite repositories, schema migrations
         ↓
 Feature extraction       src/intelligence/features.ts – 7-day baseline, ratios, consistency
         ↓
-Insights                 RuleBasedActivityIntelligenceService (today vs. the last 7 days)
+Insights                 RuleBasedActivityIntelligenceService (today so far vs. the same
+                         time of day over the last 7 days)
                          personalInsights.ts (last two complete weeks, read from SQLite)
 ```
 
@@ -165,7 +166,8 @@ Insights                 RuleBasedActivityIntelligenceService (today vs. the las
 - **Missing ≠ zero.** Metric fields are `number | null`. `null` means "no data reported"
   and renders as "—" or an empty state. A day with no data has no score.
 - **Aggregates only.** HealthKit is queried for per-day sums, never raw samples, and only
-  those sums are stored. Native workout objects are released after copying the few fields EdgeFit
+  those sums are stored. Hourly step sums for the last 7 days are read for the pace insight
+  and used in memory only; they are never stored, and not read while insights are off. Native workout objects are released after copying the few fields EdgeFit
   shows.
 - **Recoverable failures.** If one metric query fails, the others still sync, the failed
   metric keeps its last saved values (a failed read is not treated as "no data"), and a
@@ -219,7 +221,8 @@ rule-based suggestions using at least 10 valid days in the previous 14 complete
 local days. Suggestions use median steps +5%, rounded to 250, with upward changes
 capped at 10% of an existing goal. Goals change only by explicit choice. Manual
 choices pause suggestions; Not now pauses them for a week. Clear Local Data also
-clears goals. See [rules, storage and device checks](docs/ADAPTIVE_GOALS.md).
+clears goals. A goal also becomes the steps target of the Activity Score, and the Dashboard
+and the 30-day calendar show how many days in a row it has been reached. See [rules, storage and device checks](docs/ADAPTIVE_GOALS.md).
 
 ## Activity Score
 
@@ -227,19 +230,24 @@ clears goals. See [rules, storage and device checks](docs/ADAPTIVE_GOALS.md).
 Activity Score = 40% Steps + 30% Active Minutes + 30% Workout Activity
 ```
 
-Full credit at 8,000 steps, 30 active minutes and 30 workout minutes. See
+Full credit at your daily step goal (8,000 steps without one), 30 active minutes and
+30 workout minutes. See
 [docs/ACTIVITY_SCORE.md](docs/ACTIVITY_SCORE.md) for the full definition, missing-data
 rules and a worked example.
 
 ## Insights
 
-`RuleBasedActivityIntelligenceService` compares today with the previous 7 days:
+`RuleBasedActivityIntelligenceService` compares today with the previous 7 days. The level
+insight compares today's steps so far with the steps you usually have **by this time of
+day**, from hourly step sums, so a normal morning doesn't read as "below usual":
 
 | Insight | Rule |
 | --- | --- |
-| Above your usual level | today's steps ≥ 110% of the 7-day average (needs ≥ 3 days of history) |
-| Right around your usual level | 90–110% |
-| Below your usual level so far | < 90% |
+| Ahead of your usual pace | today's steps ≥ 110% of the usual steps by now (needs ≥ 3 days of hourly history) |
+| Right around your usual pace | 90–110% |
+| Behind your usual pace so far | < 90% |
+| *(no level insight)* | under 500 usual steps by now: too early in the day to compare |
+| Above / around / below your usual level | without hourly history: today vs. the full-day 7-day average, as before |
 | More active minutes than yesterday | today's exercise minutes > yesterday's |
 | Consistent week | ≥ 5 of the last 7 days within ±25% of the average |
 | Building your baseline | fewer than 3 days of step history |

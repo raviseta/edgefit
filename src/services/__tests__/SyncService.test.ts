@@ -10,7 +10,7 @@ beforeEach(() => logger.clear());
 /** Rows well outside the 30-day retention window. */
 async function seedAncientData(services: AppServices) {
   await services.repositories.summaries.upsertMany([
-    { date: '2026-08-01', steps: 1, activeCalories: 1, activeMinutes: 1, workoutCount: 0, workoutMinutes: 0, activityScore: 1 },
+    { date: '2026-08-01', steps: 1, activeCalories: 1, activeMinutes: 1, workoutCount: 0, workoutMinutes: 0, stepTarget: 8000, activityScore: 1 },
   ]);
   await services.repositories.workouts.replaceRange(new Date(2026, 7, 1), new Date(2026, 7, 2), [
     { id: 'ancient', type: 'Walking', startDate: new Date(2026, 7, 1, 9).toISOString(), durationMinutes: 10 },
@@ -45,6 +45,7 @@ describe('ActivityService.refresh (sync pipeline)', () => {
       activeMinutes: 34,
       workoutCount: 1,
       workoutMinutes: 42,
+      stepTarget: 8000,
       activityScore: 92,
     });
     expect(snapshot.workouts.map((w) => w.type)).toEqual(['Running', 'Walking', 'Strength Training', 'Cycling']);
@@ -87,12 +88,33 @@ describe('ActivityService.refresh (sync pipeline)', () => {
   });
 
   it('skips insight generation when insights are turned off', async () => {
-    const { services } = await createTestServices({ settings: { analyticsEnabled: false } });
+    const { services } = await createTestServices({ settings: { insightsEnabled: false } });
     const generate = jest.spyOn(services.intelligence, 'generateInsights');
     const snapshot = await services.activity.refresh();
     expect(generate).not.toHaveBeenCalled();
     expect(snapshot.insights).toEqual([]);
     expect(snapshot.today).not.toBeNull();
+  });
+
+  it('does not read hourly steps while insights are turned off', async () => {
+    const { services, health } = await createTestServices({ settings: { insightsEnabled: false } });
+    const hourly = jest.spyOn(health, 'getHourlySteps');
+    await services.activity.refresh();
+    expect(hourly).not.toHaveBeenCalled();
+  });
+
+  it('compares today with the usual steps by this time of day', async () => {
+    const { services } = await createTestServices();
+    const snapshot = await services.activity.refresh();
+    expect(snapshot.insights[0]).toMatchObject({ type: 'below-average', title: 'Behind your usual pace so far' });
+  });
+
+  it('a failed hourly read is not a sync failure: insights fall back to full days', async () => {
+    const { services, health } = await createTestServices();
+    jest.spyOn(health, 'getHourlySteps').mockRejectedValue(new Error('boom'));
+    const snapshot = await services.activity.refresh();
+    expect(snapshot.sync).toEqual({ status: 'synced', failedMetrics: [] });
+    expect(snapshot.insights[0]).toMatchObject({ type: 'below-average', title: 'Below your usual level so far' });
   });
 
   it('reports an unavailable provider', async () => {
@@ -252,7 +274,7 @@ describe('ActivityService.refresh (sync pipeline)', () => {
   it('applies the 30-day retention window', async () => {
     const { services } = await createTestServices();
     await services.repositories.summaries.upsertMany([
-      { date: '2026-08-01', steps: 1, activeCalories: 1, activeMinutes: 1, workoutCount: 0, workoutMinutes: 0, activityScore: 1 },
+      { date: '2026-08-01', steps: 1, activeCalories: 1, activeMinutes: 1, workoutCount: 0, workoutMinutes: 0, stepTarget: 8000, activityScore: 1 },
     ]);
     await services.repositories.workouts.replaceRange(new Date(2026, 7, 1), new Date(2026, 7, 2), [
       { id: 'ancient', type: 'Walking', startDate: new Date(2026, 7, 1, 9).toISOString(), durationMinutes: 10 },

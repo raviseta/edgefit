@@ -5,7 +5,7 @@ import { EMPTY_GOAL_PREFERENCES, suggestStepGoal, type GoalPreferences } from '.
 const now = new Date(2026, 10, 2, 0, 1); // Includes the autumn DST boundary.
 function rows(values: (number | null)[]): StoredDailySummary[] {
   return values.map((steps, i) => ({ date: addDaysToKey(toDateKey(now), i - 14), steps,
-    activeCalories: null, activeMinutes: null, workoutCount: 0, workoutMinutes: 0, activityScore: null,
+    activeCalories: null, activeMinutes: null, workoutCount: 0, workoutMinutes: 0, stepTarget: 8000, activityScore: null,
     complete: { steps: true, activeCalories: false, activeMinutes: false, workouts: false } }));
 }
 function calculate(values: (number | null)[], preferences: GoalPreferences = EMPTY_GOAL_PREFERENCES) {

@@ -17,7 +17,7 @@ export function StepGoals({ snapshot, refreshing = false }: { snapshot: Activity
   const [editing, setEditing] = useState(false);
   const [entry, setEntry] = useState('');
   const [expanded, setExpanded] = useState(false);
-  const { preferences, suggestion, generation } = snapshot.stepGoals;
+  const { preferences, suggestion, generation, streak } = snapshot.stepGoals;
   const goal = preferences.goal;
   const mutation = useMutation({
     mutationFn: (action: Parameters<typeof activity.updateStepGoal>[0]) => activity.updateStepGoal(action, generation),
@@ -49,6 +49,11 @@ export function StepGoals({ snapshot, refreshing = false }: { snapshot: Activity
         <Text style={[typography.headline, { color: colors.text }]}>
           {goal ? `${formatMetric(goal.activeSteps)} steps a day` : 'No daily goal set'}
         </Text>
+        {streak ? (
+          <Text testID="goal-streak" style={[typography.body, { color: colors.text }]}>
+            {streak === 1 ? '1 day' : `${streak} days`} in a row at your goal
+          </Text>
+        ) : null}
         <Text style={[typography.body, { color: colors.textMuted }]}>
           {steps === null ? "Today's steps unavailable." : `${formatMetric(steps)} steps ${fresh ? 'recorded today — day in progress.' : 'last saved for today — refresh unavailable.'}`}
         </Text>

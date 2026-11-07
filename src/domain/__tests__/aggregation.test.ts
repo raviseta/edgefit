@@ -1,5 +1,5 @@
 import type { Workout } from '../models';
-import { buildActivityData, buildDailySummaries } from '../aggregation';
+import { buildActivityData, buildDailySummaries, rescoreSummaries } from '../aggregation';
 
 const days = ['2026-09-28', '2026-09-29', '2026-09-30'];
 
@@ -78,5 +78,35 @@ describe('buildDailySummaries', () => {
     expect(summaries[2]).toMatchObject({ workoutCount: 2, workoutMinutes: 35, activityScore: 100 });
     expect(summaries[1]).toMatchObject({ workoutCount: 1, workoutMinutes: 10, activityScore: 10 });
     expect(summaries[0]).toMatchObject({ workoutCount: 0, workoutMinutes: 0, activityScore: null });
+  });
+});
+
+describe('rescoreSummaries', () => {
+  it('re-scores with a new step target and leaves the metrics alone', () => {
+    const day = {
+      date: '2026-09-29',
+      steps: 6000,
+      activeCalories: 300,
+      activeMinutes: null,
+      workoutCount: 0,
+      workoutMinutes: 0,
+      stepTarget: 8000,
+      activityScore: 30,
+    };
+    expect(rescoreSummaries([day], 5000)).toEqual([{ ...day, stepTarget: 5000, activityScore: 40 }]);
+  });
+
+  it('keeps a day without data unscored', () => {
+    const empty = {
+      date: '2026-09-29',
+      steps: null,
+      activeCalories: null,
+      activeMinutes: null,
+      workoutCount: 0,
+      workoutMinutes: 0,
+      stepTarget: 8000,
+      activityScore: null,
+    };
+    expect(rescoreSummaries([empty], 5000)[0]!.activityScore).toBeNull();
   });
 });

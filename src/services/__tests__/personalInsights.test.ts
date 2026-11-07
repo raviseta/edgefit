@@ -43,7 +43,7 @@ describe('ActivityService personal insights (from saved data)', () => {
   });
 
   it('is turned off with insights', async () => {
-    const { services } = await createTestServices({ fixture: fixtures.twoWeeks, settings: { analyticsEnabled: false } });
+    const { services } = await createTestServices({ fixture: fixtures.twoWeeks, settings: { insightsEnabled: false } });
     expect((await services.activity.refresh()).personalInsights).toBeNull();
   });
 

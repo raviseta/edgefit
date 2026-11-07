@@ -20,7 +20,7 @@ export function AboutScreen() {
 
       <SectionTitle>How the Activity Score works</SectionTitle>
       <Card>
-        {p(`${SCORE_WEIGHTS.steps}% steps (full credit at ${SCORE_TARGETS.steps.toLocaleString('en-US')})`)}
+        {p(`${SCORE_WEIGHTS.steps}% steps (full credit at your daily step goal, or ${SCORE_TARGETS.steps.toLocaleString('en-US')} if you haven't set one)`)}
         {p(`${SCORE_WEIGHTS.activeMinutes}% active minutes (full credit at ${SCORE_TARGETS.activeMinutes})`)}
         {p(`${SCORE_WEIGHTS.workout}% workout time (full credit at ${SCORE_TARGETS.workoutMinutes} minutes)`)}
         {p('Missing metrics count as zero. Days with no data have no score. The score is a simple summary of movement, not a medical or fitness measurement.')}
@@ -28,7 +28,7 @@ export function AboutScreen() {
 
       <SectionTitle>How insights work</SectionTitle>
       <Card>
-        {p('Insights come from a small set of fixed rules, for example comparing today\'s steps with your average over the previous 7 days. They are not produced by machine learning and are not medical advice.')}
+        {p('Insights come from a small set of fixed rules, for example comparing today\'s steps so far with what you usually have by this time of day over the previous 7 days. They are not produced by machine learning and are not medical advice.')}
       </Card>
     </Screen>
   );

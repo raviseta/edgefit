@@ -15,6 +15,7 @@ it('shows coverage and accessible actions; saves a manual target', async () => {
   await fireEvent.press(card.getByRole('button', { name: 'Save goal' }));
   await waitFor(() => expect(card.getByText('5,000 steps a day')).toBeTruthy());
   expect(card.getByRole('progressbar').props.accessibilityValue.text).toBe('128%');
+  expect(card.getByTestId('goal-streak')).toHaveTextContent('8 days in a row at your goal');
   expect(card.getByText('Your manual goal stays in place. Adaptive suggestions are paused.')).toBeTruthy();
 });
 it('shows a suggestion and dismisses it without choosing a goal', async () => {

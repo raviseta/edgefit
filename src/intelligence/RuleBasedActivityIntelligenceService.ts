@@ -1,5 +1,5 @@
 import { toDateKey } from '@/domain/dates';
-import type { ActivityData, ActivityInsight, InsightType } from '@/domain/models';
+import type { ActivityData, ActivityInsight, HourlySteps, InsightType } from '@/domain/models';
 import { formatNumber } from '@/lib/format';
 import type { ActivityIntelligenceService } from './ActivityIntelligenceService';
 import {
@@ -24,10 +24,10 @@ export class RuleBasedActivityIntelligenceService implements ActivityIntelligenc
 
   constructor(private readonly now: () => Date = () => new Date()) {}
 
-  async generateInsights(activityData: ActivityData[]): Promise<ActivityInsight[]> {
+  async generateInsights(activityData: ActivityData[], hourlySteps?: HourlySteps[]): Promise<ActivityInsight[]> {
     const now = this.now();
     const date = toDateKey(now);
-    const f = extractActivityFeatures(activityData, date);
+    const f = extractActivityFeatures(activityData, date, hourlySteps ? { now, hourlySteps } : undefined);
     const insights: ActivityInsight[] = [];
     const add = (type: InsightType, title: string, message: string) =>
       insights.push({ id: `${type}:${date}`, type, title, message, generatedAt: now.toISOString() });
@@ -40,7 +40,34 @@ export class RuleBasedActivityIntelligenceService implements ActivityIntelligenc
       );
     }
 
-    if (f.baselineDays >= MIN_BASELINE_DAYS && f.todayStepsRatio !== null && f.baselineAvgSteps !== null) {
+    if (f.paceBaselineDays >= MIN_BASELINE_DAYS) {
+      // Hourly history is available: compare with the usual steps by this time of day. Early in
+      // the day there is too little to compare (paceRatio is null), so no level insight is shown.
+      if (f.paceRatio !== null && f.baselineStepsByNow !== null) {
+        const percent = Math.round(f.paceRatio * 100);
+        const usualByNow = formatNumber(f.baselineStepsByNow);
+        if (f.paceRatio >= ABOVE_AVERAGE_RATIO) {
+          add(
+            'above-average',
+            'Ahead of your usual pace',
+            `You've taken ${formatNumber(f.todaySteps!)} steps so far today, compared with a typical ${usualByNow} by this time of day.`,
+          );
+        } else if (f.paceRatio >= ON_TRACK_RATIO) {
+          add(
+            'on-track',
+            'Right around your usual pace',
+            `You're at ${percent}% of the steps you usually have by this time of day (${usualByNow}).`,
+          );
+        } else {
+          add(
+            'below-average',
+            'Behind your usual pace so far',
+            `You're at ${percent}% of the steps you usually have by this time of day (${usualByNow}). A short walk could help you catch up.`,
+          );
+        }
+      }
+    } else if (f.baselineDays >= MIN_BASELINE_DAYS && f.todayStepsRatio !== null && f.baselineAvgSteps !== null) {
+      // No hourly history: compare with full days, which reads low until the evening.
       const percent = Math.round(f.todayStepsRatio * 100);
       const usual = formatNumber(f.baselineAvgSteps);
       if (f.todayStepsRatio >= ABOVE_AVERAGE_RATIO) {

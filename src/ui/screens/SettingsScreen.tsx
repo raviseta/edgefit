@@ -80,8 +80,8 @@ export function SettingsScreen() {
           icon="bulb"
           testID="switch-insights"
           label="Personalized insights"
-          value={s.analyticsEnabled}
-          onValueChange={(analyticsEnabled) => update.mutate({ analyticsEnabled })}
+          value={s.insightsEnabled}
+          onValueChange={(insightsEnabled) => update.mutate({ insightsEnabled })}
         />
       </RowGroup>
 

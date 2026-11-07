@@ -1,3 +1,4 @@
+import { stepTargetFor } from '@/domain/activityScore';
 import { buildActivityData, buildDailySummaries } from '@/domain/aggregation';
 import { addDays, lastNDayKeys, lastNDaysRange, startOfDay, toDateKey } from '@/domain/dates';
 import { HEALTH_METRICS, type HealthMetric } from '@/domain/models';
@@ -66,12 +67,15 @@ export class SyncService {
     const days = lastNDayKeys(ACTIVITY_SYNC_DAYS, now);
     const { start, end } = lastNDaysRange(ACTIVITY_SYNC_DAYS, now);
     const workoutRange = lastNDaysRange(WORKOUT_SYNC_DAYS, now);
+    const paceRange = lastNDaysRange(BASELINE_WINDOW_DAYS + 1, now);
 
-    const [steps, activeCalories, activeMinutes, workoutData] = await Promise.allSettled([
+    const [steps, activeCalories, activeMinutes, workoutData, hourlyData] = await Promise.allSettled([
       health.getSteps(start, end),
       health.getActiveCalories(start, end),
       health.getActiveMinutes(start, end),
       health.getWorkouts(workoutRange.start, workoutRange.end),
+      // Hourly steps only feed the pace insight, so they aren't read while insights are off.
+      settings.insightsEnabled ? health.getHourlySteps(paceRange.start, paceRange.end) : Promise.resolve([]),
     ]);
 
     const failedMetrics: HealthMetric[] = [];
@@ -122,14 +126,23 @@ export class SyncService {
     }
     // Score with whatever workouts are cached if the workout query failed this time.
     const workoutsForScoring = workouts ?? (await repositories.workouts.list());
+    const { goal } = await repositories.goals.get();
     // Metrics re-saved from the cache are only as complete as they were before this sync.
     await repositories.summaries.upsertMany(
-      buildDailySummaries(activity, workoutsForScoring),
+      buildDailySummaries(activity, workoutsForScoring, stepTargetFor(goal?.activeSteps)),
       now,
       HEALTH_METRICS.filter((m) => !failedMetrics.includes(m)),
     );
 
-    const insights = settings.analyticsEnabled ? await intelligence.generateInsights(activity) : [];
+    // Hourly steps are used here in memory and never stored. Without them the pace insight
+    // falls back to the full-day comparison; that is not a sync failure.
+    let hourlySteps;
+    if (hourlyData.status === 'fulfilled') {
+      hourlySteps = hourlyData.value;
+    } else {
+      logger.warn('health.query_failed', hourlyData.reason, { metric: 'hourlySteps', provider: health.provider });
+    }
+    const insights = settings.insightsEnabled ? await intelligence.generateInsights(activity, hourlySteps) : [];
     await repositories.insights.replaceAll(insights);
 
     return { status: 'synced', failedMetrics };

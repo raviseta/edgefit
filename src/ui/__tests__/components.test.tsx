@@ -12,6 +12,7 @@ const summary: DailySummary = {
   activeMinutes: 15,
   workoutCount: 0,
   workoutMinutes: 0,
+  stepTarget: 8000,
   activityScore: 35,
 };
 

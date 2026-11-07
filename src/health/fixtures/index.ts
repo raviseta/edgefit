@@ -38,6 +38,15 @@ const week = (rows: [steps: number, kcal: number, minutes: number][]): FixtureDa
     activeMinutes,
   }));
 
+/**
+ * Share of a day's steps in each local hour (0–23), summing to 100, used by the mock
+ * provider to spread fixture day totals into hourly buckets: quiet nights, a morning
+ * commute, lunch and an evening peak.
+ */
+export const HOURLY_STEP_PROFILE: readonly number[] = [
+  0, 0, 0, 0, 0, 0, 2, 6, 8, 6, 5, 6, 9, 7, 5, 5, 6, 9, 10, 7, 5, 3, 1, 0,
+];
+
 export const emptyFixture: HealthFixture = { name: 'empty', days: [], workouts: [] };
 
 /** Typical week; today is partially complete (afternoon). */

@@ -9,6 +9,7 @@ interface SummaryRow {
   active_minutes: number | null;
   workout_count: number;
   workout_minutes: number;
+  step_target: number;
   activity_score: number | null;
 }
 
@@ -19,6 +20,7 @@ const toSummary = (row: SummaryRow): DailySummary => ({
   activeMinutes: row.active_minutes,
   workoutCount: row.workout_count,
   workoutMinutes: row.workout_minutes,
+  stepTarget: row.step_target,
   activityScore: row.activity_score,
 });
 
@@ -47,14 +49,15 @@ export class SummaryRepository {
       for (const s of summaries) {
         await this.db.run(
           `INSERT INTO daily_summaries
-             (date, steps, active_calories, active_minutes, workout_count, workout_minutes, activity_score, updated_at, complete)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             (date, steps, active_calories, active_minutes, workout_count, workout_minutes, step_target, activity_score, updated_at, complete)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(date) DO UPDATE SET
              steps = excluded.steps,
              active_calories = excluded.active_calories,
              active_minutes = excluded.active_minutes,
              workout_count = excluded.workout_count,
              workout_minutes = excluded.workout_minutes,
+             step_target = excluded.step_target,
              activity_score = excluded.activity_score,
              updated_at = excluded.updated_at,
              complete = CASE WHEN ? THEN excluded.complete | (daily_summaries.complete & ~?) ELSE 0 END`,
@@ -65,6 +68,7 @@ export class SummaryRepository {
             s.activeMinutes,
             s.workoutCount,
             s.workoutMinutes,
+            s.stepTarget,
             s.activityScore,
             updatedAt.toISOString(),
             s.date < writtenOn ? fresh : 0,
@@ -72,6 +76,19 @@ export class SummaryRepository {
             fresh,
           ],
         );
+      }
+    });
+  }
+
+  /** Writes only the score and steps target; metrics, `updated_at` and completeness are untouched. */
+  async updateScores(summaries: DailySummary[]): Promise<void> {
+    await this.db.transaction(async () => {
+      for (const s of summaries) {
+        await this.db.run('UPDATE daily_summaries SET activity_score = ?, step_target = ? WHERE date = ?', [
+          s.activityScore,
+          s.stepTarget,
+          s.date,
+        ]);
       }
     });
   }

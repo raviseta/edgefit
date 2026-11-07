@@ -3,9 +3,11 @@
  *
  *   Activity Score = 40% Steps + 30% Active Minutes + 30% Workout Activity
  *
- *   steps component         = min(steps / 8,000, 1)        × 40
+ *   steps component         = min(steps / stepTarget, 1)   × 40
  *   active minutes component = min(activeMinutes / 30, 1)  × 30
  *   workout component       = min(workoutMinutes / 30, 1)  × 30
+ *
+ * `stepTarget` is the user's daily step goal, or 8,000 when no goal is set.
  *
  * A missing metric contributes 0. If steps and active minutes are both missing
  * and there were no workouts, the day has no data and the score is `null`.
@@ -16,6 +18,11 @@
 
 export const SCORE_WEIGHTS = { steps: 40, activeMinutes: 30, workout: 30 } as const;
 export const SCORE_TARGETS = { steps: 8000, activeMinutes: 30, workoutMinutes: 30 } as const;
+
+/** The steps target a day is scored with. */
+export function stepTargetFor(goalSteps: number | null | undefined): number {
+  return goalSteps ?? SCORE_TARGETS.steps;
+}
 
 export interface ActivityScoreInput {
   steps: number | null;
@@ -43,13 +50,16 @@ function component(value: number | null, target: number, weight: number): number
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-export function calculateActivityScore(input: ActivityScoreInput): ActivityScore | null {
+export function calculateActivityScore(
+  input: ActivityScoreInput,
+  stepTarget: number = SCORE_TARGETS.steps,
+): ActivityScore | null {
   const workoutMinutes = Math.max(0, input.workoutMinutes || 0);
   if (input.steps === null && input.activeMinutes === null && workoutMinutes === 0) {
     return null;
   }
 
-  const steps = component(input.steps, SCORE_TARGETS.steps, SCORE_WEIGHTS.steps);
+  const steps = component(input.steps, stepTarget, SCORE_WEIGHTS.steps);
   const activeMinutes = component(input.activeMinutes, SCORE_TARGETS.activeMinutes, SCORE_WEIGHTS.activeMinutes);
   const workout = component(workoutMinutes, SCORE_TARGETS.workoutMinutes, SCORE_WEIGHTS.workout);
 
