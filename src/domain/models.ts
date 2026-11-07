@@ -21,8 +21,17 @@ export interface DailySummary extends ActivityData {
   workoutCount: number;
   /** Total workout duration that day; feeds the "workout activity" score component. */
   workoutMinutes: number;
+  /** Steps for full step credit when the day was scored: the step goal then in effect, or 8,000. */
+  stepTarget: number;
   /** 0–100, or `null` when there is not enough data to score the day. */
   activityScore: number | null;
+}
+
+/** Steps recorded in one local clock hour (`hour` 0–23). Used only during a sync, never stored. */
+export interface HourlySteps {
+  date: DateKey;
+  hour: number;
+  steps: number;
 }
 
 /** What each sync reads from the health platform. */
@@ -71,7 +80,7 @@ export interface PrivacySettings {
   /** User allowed EdgeFit to read health data (onboarding / settings choice). */
   healthDataEnabled: boolean;
   /** Generate local, rule-based insights. This is not telemetry: nothing is sent anywhere. */
-  analyticsEnabled: boolean;
+  insightsEnabled: boolean;
 }
 
 export type EnergyUnit = 'kcal' | 'kJ';
@@ -86,7 +95,7 @@ export interface AppSettings extends PrivacySettings {
 export const DEFAULT_SETTINGS: AppSettings = {
   onboardingCompleted: false,
   healthDataEnabled: false,
-  analyticsEnabled: true,
+  insightsEnabled: true,
   healthPermissionRequested: false,
   energyUnit: 'kcal',
 };

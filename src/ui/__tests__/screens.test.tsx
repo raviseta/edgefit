@@ -110,7 +110,7 @@ describe('SettingsScreen', () => {
     await fireEvent.press(await screen.findByTestId('segment-kJ'));
     await waitFor(async () => expect((await services.repositories.settings.get()).energyUnit).toBe('kJ'));
     await fireEvent(screen.getByTestId('switch-insights'), 'valueChange', false);
-    await waitFor(async () => expect((await services.repositories.settings.get()).analyticsEnabled).toBe(false));
+    await waitFor(async () => expect((await services.repositories.settings.get()).insightsEnabled).toBe(false));
   });
 
   it('turning health access off stops reading health data', async () => {

@@ -54,11 +54,10 @@ export function MetricGrid({ children }: { children: React.ReactNode }) {
 export function ScoreCard({ summary }: { summary: DailySummary }) {
   const { colors } = useTheme();
   const [expanded, setExpanded] = useState(false);
-  const score = calculateActivityScore({
-    steps: summary.steps,
-    activeMinutes: summary.activeMinutes,
-    workoutMinutes: summary.workoutMinutes,
-  });
+  const score = calculateActivityScore(
+    { steps: summary.steps, activeMinutes: summary.activeMinutes, workoutMinutes: summary.workoutMinutes },
+    summary.stepTarget,
+  );
 
   const total = score?.total ?? 0;
 
@@ -93,7 +92,7 @@ export function ScoreCard({ summary }: { summary: DailySummary }) {
         </Pressable>
         {expanded && score ? (
           <View testID="score-breakdown" style={styles.breakdown}>
-            <BreakdownRow label={`Steps (target ${SCORE_TARGETS.steps.toLocaleString('en-US')})`} value={score.breakdown.steps} max={SCORE_WEIGHTS.steps} />
+            <BreakdownRow label={`Steps (target ${summary.stepTarget.toLocaleString('en-US')})`} value={score.breakdown.steps} max={SCORE_WEIGHTS.steps} />
             <BreakdownRow label={`Active minutes (target ${SCORE_TARGETS.activeMinutes})`} value={score.breakdown.activeMinutes} max={SCORE_WEIGHTS.activeMinutes} />
             <BreakdownRow label={`Workout minutes (target ${SCORE_TARGETS.workoutMinutes})`} value={score.breakdown.workout} max={SCORE_WEIGHTS.workout} />
             <Text style={[typography.caption, { color: colors.onHero, opacity: 0.8 }]}>

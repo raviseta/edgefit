@@ -82,6 +82,25 @@ describe('HealthKitService daily sums', () => {
     ]);
   });
 
+  it('getHourlySteps runs one hourly step query and returns local day and hour', async () => {
+    mocked.queryStatisticsCollectionForQuantity.mockResolvedValue([
+      bucket(new Date(2026, 8, 29, 8), 420),
+      bucket(new Date(2026, 8, 29, 9)),
+      bucket(new Date(2026, 8, 30, 7), 0),
+    ]);
+    expect(await new HealthKitService().getHourlySteps(start, end)).toEqual([
+      { date: '2026-09-29', hour: 8, steps: 420 },
+      { date: '2026-09-30', hour: 7, steps: 0 },
+    ]);
+    expect(mocked.queryStatisticsCollectionForQuantity).toHaveBeenCalledWith(
+      'HKQuantityTypeIdentifierStepCount',
+      ['cumulativeSum'],
+      new Date(2026, 8, 28),
+      { hour: 1 },
+      { filter: { date: { startDate: start, endDate: end } }, unit: 'count' },
+    );
+  });
+
   it('skips buckets with no start date', async () => {
     mocked.queryStatisticsCollectionForQuantity.mockResolvedValue([
       { ...bucket(new Date(2026, 8, 30), 10), startDate: undefined },

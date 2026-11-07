@@ -1,6 +1,6 @@
 import type { DailyQuantity } from '@/health/HealthService';
 import { indexByDate, workoutDateKey } from '@/health/normalization';
-import { calculateActivityScore } from './activityScore';
+import { calculateActivityScore, SCORE_TARGETS } from './activityScore';
 import type { ActivityData, DailySummary, DateKey, Workout } from './models';
 
 /**
@@ -24,7 +24,11 @@ export function buildActivityData(
   }));
 }
 
-export function buildDailySummaries(activity: ActivityData[], workouts: Workout[]): DailySummary[] {
+export function buildDailySummaries(
+  activity: ActivityData[],
+  workouts: Workout[],
+  stepTarget: number = SCORE_TARGETS.steps,
+): DailySummary[] {
   const workoutsByDay = new Map<DateKey, Workout[]>();
   for (const workout of workouts) {
     const key = workoutDateKey(workout);
@@ -34,18 +38,26 @@ export function buildDailySummaries(activity: ActivityData[], workouts: Workout[
   return activity.map((day) => {
     const dayWorkouts = workoutsByDay.get(day.date) ?? [];
     const workoutMinutes = dayWorkouts.reduce((sum, w) => sum + w.durationMinutes, 0);
-    const score = calculateActivityScore({
-      steps: day.steps,
-      activeMinutes: day.activeMinutes,
-      workoutMinutes,
-    });
+    const score = calculateActivityScore({ steps: day.steps, activeMinutes: day.activeMinutes, workoutMinutes }, stepTarget);
     return {
       ...day,
       workoutCount: dayWorkouts.length,
       workoutMinutes,
+      stepTarget,
       activityScore: score?.total ?? null,
     };
   });
+}
+
+/** Re-scores stored summaries with a new steps target; the metrics themselves are unchanged. */
+export function rescoreSummaries(summaries: DailySummary[], stepTarget: number): DailySummary[] {
+  return summaries.map((s) => ({
+    ...s,
+    stepTarget,
+    activityScore:
+      calculateActivityScore({ steps: s.steps, activeMinutes: s.activeMinutes, workoutMinutes: s.workoutMinutes }, stepTarget)
+        ?.total ?? null,
+  }));
 }
 
 function roundOrNull(value: number | undefined): number | null {

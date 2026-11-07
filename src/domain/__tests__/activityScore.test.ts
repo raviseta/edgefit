@@ -1,4 +1,4 @@
-import { calculateActivityScore, SCORE_TARGETS } from '../activityScore';
+import { calculateActivityScore, SCORE_TARGETS, stepTargetFor } from '../activityScore';
 
 describe('calculateActivityScore', () => {
   it('awards 100 when every target is met', () => {
@@ -43,5 +43,20 @@ describe('calculateActivityScore', () => {
 
   it('ignores invalid negative or non-finite inputs', () => {
     expect(calculateActivityScore({ steps: -500, activeMinutes: Number.NaN, workoutMinutes: -10 })?.total).toBe(0);
+  });
+});
+
+describe('step target', () => {
+  it('scores steps against the given target', () => {
+    const input = { steps: 6000, activeMinutes: null, workoutMinutes: 0 };
+    expect(calculateActivityScore(input, 5000)?.breakdown.steps).toBe(40);
+    expect(calculateActivityScore(input, 12000)?.breakdown.steps).toBe(20);
+    expect(calculateActivityScore(input)?.breakdown.steps).toBe(30);
+  });
+
+  it('uses the step goal when there is one, otherwise the default', () => {
+    expect(stepTargetFor(12000)).toBe(12000);
+    expect(stepTargetFor(null)).toBe(SCORE_TARGETS.steps);
+    expect(stepTargetFor(undefined)).toBe(SCORE_TARGETS.steps);
   });
 });

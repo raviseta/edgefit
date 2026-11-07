@@ -46,6 +46,12 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE daily_summaries ADD COLUMN complete INTEGER NOT NULL DEFAULT 0;
   UPDATE daily_summaries SET complete = 15 WHERE date < date(updated_at, 'localtime');
   `,
+  // The steps target each day was scored with: the user's step goal, or 8,000 without one.
+  // Rows written before goals fed the score were all scored at 8,000.
+  `
+  ALTER TABLE daily_summaries ADD COLUMN step_target INTEGER NOT NULL DEFAULT 8000;
+  UPDATE settings SET key = 'insightsEnabled' WHERE key = 'analyticsEnabled';
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

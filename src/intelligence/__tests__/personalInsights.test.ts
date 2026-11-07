@@ -25,6 +25,7 @@ function row(date: DateKey, metrics: Partial<StoredDailySummary> = {}): StoredDa
     activeMinutes: null,
     workoutCount: 0,
     workoutMinutes: 0,
+    stepTarget: 8000,
     activityScore: null,
     complete: ALL_COMPLETE,
     ...metrics,

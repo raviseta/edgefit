@@ -1,4 +1,4 @@
-import type { ActivityData, ActivityInsight } from '@/domain/models';
+import type { ActivityData, ActivityInsight, HourlySteps } from '@/domain/models';
 
 /**
  * Boundary between the app and whatever produces personalized insights.
@@ -12,5 +12,6 @@ export interface ActivityIntelligenceService {
   /** How insights are produced; surfaced in the Privacy Center so the UI never overstates it. */
   readonly method: 'rule-based' | 'on-device-ml';
 
-  generateInsights(activityData: ActivityData[]): Promise<ActivityInsight[]>;
+  /** `hourlySteps` covers the baseline days when available; it is used in memory only. */
+  generateInsights(activityData: ActivityData[], hourlySteps?: HourlySteps[]): Promise<ActivityInsight[]>;
 }

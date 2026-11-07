@@ -1,5 +1,5 @@
-import type { DailySummary, Workout } from '../models';
-import { buildCalendarDays, CALENDAR_DAYS, isCalendarEmpty, scoreLevel, summarizeCalendar } from '../calendar';
+import type { DailySummary, StoredDailySummary, Workout } from '../models';
+import { buildCalendarDays, CALENDAR_DAYS, goalStreak, isCalendarEmpty, scoreLevel, summarizeCalendar } from '../calendar';
 
 // Tests run with TZ=America/New_York (see package.json).
 const summary = (date: string, overrides: Partial<DailySummary> = {}): DailySummary => ({
@@ -9,6 +9,7 @@ const summary = (date: string, overrides: Partial<DailySummary> = {}): DailySumm
   activeMinutes: 20,
   workoutCount: 0,
   workoutMinutes: 0,
+  stepTarget: 8000,
   activityScore: 45,
   ...overrides,
 });
@@ -186,5 +187,29 @@ describe('summarizeCalendar', () => {
     const nullDay = summary('2026-10-17', { steps: null, activeCalories: null, activeMinutes: null, activityScore: null });
     expect(isCalendarEmpty(buildCalendarDays(now, [nullDay], []))).toBe(true);
     expect(isCalendarEmpty(buildCalendarDays(now, [], [workout('w', new Date(2026, 9, 5, 7))]))).toBe(false);
+  });
+});
+
+describe('goalStreak', () => {
+  const now = new Date(2026, 8, 30, 20);
+  const complete = { steps: true, activeCalories: true, activeMinutes: true, workouts: true };
+  const day = (date: string, steps: number | null, stepsComplete = true): StoredDailySummary => ({
+    ...summary(date, { steps }),
+    complete: { ...complete, steps: stepsComplete },
+  });
+
+  it('counts complete days at the goal back from yesterday, plus today once reached', () => {
+    const days = [day('2026-09-27', 4000), day('2026-09-28', 6000), day('2026-09-29', 5000), day('2026-09-30', 7000, false)];
+    expect(goalStreak(days, 5000, now)).toBe(3);
+  });
+
+  it('does not let today break the streak before it reaches the goal', () => {
+    expect(goalStreak([day('2026-09-29', 6000), day('2026-09-30', 1000, false)], 5000, now)).toBe(1);
+  });
+
+  it('ends at a missing day, a missing step count or an incomplete day rather than skipping it', () => {
+    expect(goalStreak([day('2026-09-27', 6000), day('2026-09-29', 6000)], 5000, now)).toBe(1);
+    expect(goalStreak([day('2026-09-28', 6000), day('2026-09-29', null)], 5000, now)).toBe(0);
+    expect(goalStreak([day('2026-09-28', 6000), day('2026-09-29', 6000, false)], 5000, now)).toBe(0);
   });
 });

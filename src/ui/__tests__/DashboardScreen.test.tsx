@@ -170,7 +170,7 @@ describe('DashboardScreen – Personal Activity Insights', () => {
   });
 
   it('is hidden when insights are turned off', async () => {
-    const { services } = await createTestServices({ fixture: fixtures.twoWeeks, settings: { analyticsEnabled: false } });
+    const { services } = await createTestServices({ fixture: fixtures.twoWeeks, settings: { insightsEnabled: false } });
     await renderWithServices(<DashboardScreen now={testNow} />, services);
     expect(await screen.findByTestId('dashboard')).toBeTruthy();
     expect(screen.queryByTestId('personal-insights')).toBeNull();

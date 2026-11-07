@@ -118,7 +118,7 @@ describe('CalendarScreen', () => {
     const { services } = await createTestServices();
     await services.activity.refresh();
     await services.repositories.summaries.upsertMany([
-      { date: '2026-09-15', steps: 0, activeCalories: 0, activeMinutes: 0, workoutCount: 0, workoutMinutes: 0, activityScore: 0 },
+      { date: '2026-09-15', steps: 0, activeCalories: 0, activeMinutes: 0, workoutCount: 0, workoutMinutes: 0, stepTarget: 8000, activityScore: 0 },
     ]);
     await renderWithServices(<CalendarScreen now={testNow} />, services);
 

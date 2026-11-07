@@ -1,5 +1,6 @@
 import { addDays, startOfDay, toDateKey } from '@/domain/dates';
-import type { HealthFixture } from './fixtures';
+import type { HourlySteps } from '@/domain/models';
+import { HOURLY_STEP_PROFILE, type HealthFixture } from './fixtures';
 import type {
   ActiveMinuteData,
   AuthorizationResult,
@@ -54,6 +55,27 @@ export class MockHealthService implements HealthService {
 
   getSteps(startDate: Date, endDate: Date): Promise<StepData[]> {
     return this.daily('steps', startDate, endDate);
+  }
+
+  /**
+   * Spreads each fixture day's steps over `HOURLY_STEP_PROFILE`. Today's total is "so far",
+   * so it is spread over the hours up to the current one only.
+   */
+  async getHourlySteps(startDate: Date, endDate: Date): Promise<HourlySteps[]> {
+    this.assertQueryable();
+    const now = this.now();
+    const today = startOfDay(now);
+    const result: HourlySteps[] = [];
+    for (const day of this.fixture.days) {
+      if (day.steps === undefined) continue;
+      const date = addDays(today, day.offset);
+      if (date < startOfDay(startDate) || date > endDate) continue;
+      const lastHour = day.offset === 0 ? now.getHours() : 23;
+      spreadOverHours(day.steps, lastHour).forEach((steps, hour) => {
+        if (steps > 0) result.push({ date: toDateKey(date), hour, steps });
+      });
+    }
+    return result;
   }
 
   getActiveCalories(startDate: Date, endDate: Date): Promise<CalorieData[]> {
@@ -111,4 +133,15 @@ export class MockHealthService implements HealthService {
   private now() {
     return this.options.now?.() ?? new Date();
   }
+}
+
+/** Whole steps per hour 0…lastHour in proportion to the profile, summing exactly to `total`. */
+function spreadOverHours(total: number, lastHour: number): number[] {
+  const weights = HOURLY_STEP_PROFILE.slice(0, lastHour + 1);
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+  if (weightSum === 0) return weights.map((_, hour) => (hour === lastHour ? total : 0));
+  const steps = weights.map((w) => Math.floor((total * w) / weightSum));
+  const busiest = weights.indexOf(Math.max(...weights));
+  steps[busiest]! += total - steps.reduce((a, b) => a + b, 0);
+  return steps;
 }

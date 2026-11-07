@@ -56,4 +56,19 @@ describe('MockHealthService', () => {
     const service = new MockHealthService(fixtures.normal, { failQueries: true });
     await expect(service.getSteps(start, end)).rejects.toThrow('Mock health query failure');
   });
+
+  it('spreads each day over hours so the hourly steps add up to the day', async () => {
+    const service = new MockHealthService(fixtures.normal, { now: testNow });
+    const daily = await service.getSteps(start, end);
+    const hourly = await service.getHourlySteps(start, end);
+    for (const { date, value } of daily) {
+      expect(hourly.filter((h) => h.date === date).reduce((sum, h) => sum + h.steps, 0)).toBe(value);
+    }
+  });
+
+  it("spreads today's steps over the hours so far only", async () => {
+    const hourly = await new MockHealthService(fixtures.normal, { now: testNow }).getHourlySteps(start, end);
+    const today = hourly.filter((h) => h.date === '2026-09-30');
+    expect(Math.max(...today.map((h) => h.hour))).toBeLessThanOrEqual(TEST_NOW.getHours());
+  });
 });

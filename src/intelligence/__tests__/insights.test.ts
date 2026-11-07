@@ -1,6 +1,6 @@
 import { buildActivityData } from '@/domain/aggregation';
 import { lastNDayKeys, lastNDaysRange } from '@/domain/dates';
-import type { ActivityData } from '@/domain/models';
+import type { ActivityData, HourlySteps } from '@/domain/models';
 import { fixtures, type HealthFixture } from '@/health/fixtures';
 import { MockHealthService } from '@/health/MockHealthService';
 import { TEST_NOW, testNow } from '@/test-utils/harness';
@@ -99,5 +99,61 @@ describe('RuleBasedActivityIntelligenceService', () => {
         expect(text).not.toMatch(/\b(AI|machine learning|predict|diagnos|medical|health risk)\b/i);
       }
     }
+  });
+});
+
+describe('pace: today so far vs. the usual steps by this time of day', () => {
+  // Three 5,000-step baseline days: 1,000 steps in the 08:00 hour and 4,000 in the 18:00 hour.
+  const baselineDates = ['2026-09-27', '2026-09-28', '2026-09-29'];
+  const hourly: HourlySteps[] = baselineDates.flatMap((date) => [
+    { date, hour: 8, steps: 1000 },
+    { date, hour: 18, steps: 4000 },
+  ]);
+  const activity = (todaySteps: number): ActivityData[] => [
+    ...baselineDates.map((date) => ({ date, steps: 5000, activeCalories: null, activeMinutes: null })),
+    { date: '2026-09-30', steps: todaySteps, activeCalories: null, activeMinutes: null },
+  ];
+  const at = (hour: number, minute = 0) => new RuleBasedActivityIntelligenceService(() => new Date(2026, 8, 30, hour, minute));
+  const levelInsight = async (hour: number, minute: number, todaySteps: number, hourlySteps: HourlySteps[] = hourly) =>
+    (await at(hour, minute).generateInsights(activity(todaySteps), hourlySteps)).find((i) =>
+      ['above-average', 'on-track', 'below-average'].includes(i.type),
+    );
+
+  it('counts the current hour in proportion to the minutes elapsed', () => {
+    const f = extractActivityFeatures(activity(600), '2026-09-30', { now: new Date(2026, 8, 30, 8, 30), hourlySteps: hourly });
+    expect(f).toMatchObject({ paceBaselineDays: 3, baselineStepsByNow: 500, paceRatio: 1.2 });
+  });
+
+  it('a typical midday reads as on pace, where the full-day rule called it 20%', async () => {
+    expect(await levelInsight(12, 0, 1000)).toMatchObject({
+      type: 'on-track',
+      title: 'Right around your usual pace',
+      message: "You're at 100% of the steps you usually have by this time of day (1,000).",
+    });
+  });
+
+  it('ahead of the usual pace', async () => {
+    expect(await levelInsight(8, 30, 600)).toMatchObject({
+      type: 'above-average',
+      message: "You've taken 600 steps so far today, compared with a typical 500 by this time of day.",
+    });
+  });
+
+  it('behind the usual pace in the evening', async () => {
+    expect(await levelInsight(21, 0, 3000)).toMatchObject({
+      type: 'below-average',
+      title: 'Behind your usual pace so far',
+      message: "You're at 60% of the steps you usually have by this time of day (5,000). A short walk could help you catch up.",
+    });
+  });
+
+  it('says nothing about the level while it is too early to compare', async () => {
+    expect(await levelInsight(7, 0, 100)).toBeUndefined();
+  });
+
+  it('falls back to the full-day comparison without enough hourly history', async () => {
+    const twoDays = hourly.filter((h) => h.date !== '2026-09-27');
+    expect(await levelInsight(12, 0, 1000, twoDays)).toMatchObject({ type: 'below-average', title: 'Below your usual level so far' });
+    expect((await at(12).generateInsights(activity(1000))).map((i) => i.type)).toContain('below-average');
   });
 });

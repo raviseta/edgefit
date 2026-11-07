@@ -1,5 +1,5 @@
 import { toDateKey } from '@/domain/dates';
-import type { DateKey, Workout } from '@/domain/models';
+import type { DateKey, HourlySteps, Workout } from '@/domain/models';
 import type { DailyQuantity, WorkoutData } from './HealthService';
 
 /**
@@ -16,6 +16,25 @@ export function indexByDate(values: DailyQuantity[]): Map<DateKey, number> {
     map.set(date, (map.get(date) ?? 0) + value);
   }
   return map;
+}
+
+/**
+ * Sums hourly buckets by local day and clock hour, oldest first. When clocks go back, the
+ * repeated hour arrives as two buckets with the same local hour; they are added together.
+ * Non-finite or negative values are dropped as invalid.
+ */
+export function sumByLocalHour(buckets: { start: Date; value: number }[]): HourlySteps[] {
+  const sums = new Map<string, HourlySteps>();
+  for (const { start, value } of buckets) {
+    if (!Number.isFinite(value) || value < 0) continue;
+    const date = toDateKey(start);
+    const hour = start.getHours();
+    const key = `${date}T${hour}`;
+    const existing = sums.get(key);
+    if (existing) existing.steps += value;
+    else sums.set(key, { date, hour, steps: value });
+  }
+  return [...sums.values()].sort((a, b) => a.date.localeCompare(b.date) || a.hour - b.hour);
 }
 
 const WORKOUT_LABEL_OVERRIDES: Record<string, string> = {
