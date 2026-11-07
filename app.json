@@ -36,7 +36,8 @@
           "background": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      "./plugins/withSceneLifecycle"
     ],
     "experiments": {
       "typedRoutes": true
