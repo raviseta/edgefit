@@ -4,11 +4,12 @@ import { buildCalendarDays, CALENDAR_DAYS, goalStreak, summarizeCalendar, type C
 import { addDays, addDaysToKey, fromDateKey, lastNDayKeys } from '@/domain/dates';
 import { HEALTH_METRICS, type ActivityInsight, type AppSettings, type DailySummary, type DateKey, type Workout } from '@/domain/models';
 import type { HealthProviderKind } from '@/health/HealthService';
+import { buildStepForecastDataset, predictTomorrowSteps, STEP_FORECAST_FEATURE_VERSION, type BaselineStepForecast, type StepForecastExample } from '@/intelligence/activityForecast';
 import { buildPersonalInsights, PERSONAL_INSIGHT_LOOKBACK_DAYS, type PersonalInsights } from '@/intelligence/personalInsights';
 import type { Repositories } from '@/data/repositories';
 import { isValidStepGoal, suggestStepGoal, type GoalPreferences, type GoalSuggestion } from '@/domain/stepGoals';
 import { logger } from '@/lib/logger';
-import { ACTIVITY_SYNC_DAYS, HISTORY_DAYS, type SyncOutcome, type SyncService } from './SyncService';
+import { ACTIVITY_SYNC_DAYS, HISTORY_DAYS, RETENTION_DAYS, type SyncOutcome, type SyncService } from './SyncService';
 
 /** The 30-day calendar, read from local storage only. */
 export interface CalendarSnapshot {
@@ -25,6 +26,14 @@ export interface CalendarSnapshot {
 export interface HistoryDay {
   date: DateKey;
   summary: DailySummary | null;
+}
+
+/** In-memory learning pipeline. Examples are retrospective, not saved predictions. */
+export interface ActivityForecastExperiment {
+  dataSource: 'demo' | 'healthkit';
+  featureVersion: typeof STEP_FORECAST_FEATURE_VERSION;
+  baseline: BaselineStepForecast;
+  dataset: StepForecastExample[];
 }
 
 /** Everything the screens render, read from local storage after a sync attempt. */
@@ -45,6 +54,8 @@ export interface ActivitySnapshot {
   insights: ActivityInsight[];
   /** Two-week personal insights from saved data; null when insights are turned off. */
   personalInsights: PersonalInsights | null;
+  /** Forecast foundation; null when insights or health reading are off. UI is a later milestone. */
+  activityForecast: ActivityForecastExperiment | null;
   workouts: Workout[];
   refreshedAt: string;
 }
@@ -177,9 +188,9 @@ export class ActivityService {
     const days = lastNDayKeys(HISTORY_DAYS, now);
     const today = days[days.length - 1]!;
     const lookbackStart = addDaysToKey(today, -PERSONAL_INSIGHT_LOOKBACK_DAYS);
-    const storedStart = addDaysToKey(today, -(CALENDAR_DAYS - 1));
+    const storedStart = addDaysToKey(today, -(Math.max(CALENDAR_DAYS, RETENTION_DAYS) - 1));
 
-    // One read covers the 7-day history, the two-week insight window and the goal streak.
+    // One bounded read covers history, insights, the goal streak and retrospective forecast examples.
     const [settings, stored, insights, workouts, lookbackWorkouts, preferences] = await Promise.all([
       repositories.settings.get(),
       repositories.summaries.getStoredRange(storedStart, today),
@@ -217,6 +228,14 @@ export class ActivityService {
               ? HEALTH_METRICS.filter((metric) => sync.failedMetrics.includes(metric))
               : HEALTH_METRICS,
           })
+        : null,
+      activityForecast: settings.insightsEnabled && settings.healthDataEnabled
+        ? {
+            dataSource: this.deps.provider === 'mock' ? 'demo' : 'healthkit',
+            featureVersion: STEP_FORECAST_FEATURE_VERSION,
+            baseline: predictTomorrowSteps({ now, summaries: stored, stepsAvailable: sync.status === 'synced' && !sync.failedMetrics.includes('steps') }),
+            dataset: buildStepForecastDataset({ asOf: now, summaries: stored, stepsAvailable: sync.status === 'synced' && !sync.failedMetrics.includes('steps') }),
+          }
         : null,
       workouts,
       refreshedAt: now.toISOString(),
