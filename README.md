@@ -300,7 +300,7 @@ The first milestone for **Tomorrow’s Activity Forecast** is implemented:
 `activityForecast.ts` builds training examples from complete daily step summaries
 and a seven-day mean baseline. `ActivityService.refresh()` exposes the experiment
 in memory, respects insights/health settings and the existing 30-day retention,
-and identifies mock data as demo data. See [timing, features and learning steps](docs/ACTIVITY_FORECAST.md).
+and identifies mock data as demo data.
 Model training, saved forecasts and the Dashboard card are later milestones.
 
 The rule engine sits behind `ActivityIntelligenceService`. `features.ts` is the boundary
