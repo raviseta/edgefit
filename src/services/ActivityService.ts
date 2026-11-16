@@ -28,9 +28,14 @@ export interface HistoryDay {
   summary: DailySummary | null;
 }
 
+type ForecastDataSource = 'demo' | 'healthkit';
+
+/** Exhaustive, so adding a provider fails to compile until its data is labelled here. */
+const FORECAST_DATA_SOURCE: Record<HealthProviderKind, ForecastDataSource> = { mock: 'demo', healthkit: 'healthkit' };
+
 /** In-memory learning pipeline. Examples are retrospective, not saved predictions. */
 export interface ActivityForecastExperiment {
-  dataSource: 'demo' | 'healthkit';
+  dataSource: ForecastDataSource;
   featureVersion: typeof STEP_FORECAST_FEATURE_VERSION;
   baseline: BaselineStepForecast;
   dataset: StepForecastExample[];
@@ -188,7 +193,8 @@ export class ActivityService {
     const days = lastNDayKeys(HISTORY_DAYS, now);
     const today = days[days.length - 1]!;
     const lookbackStart = addDaysToKey(today, -PERSONAL_INSIGHT_LOOKBACK_DAYS);
-    const storedStart = addDaysToKey(today, -(Math.max(CALENDAR_DAYS, RETENTION_DAYS) - 1));
+    // The whole retained window (which also covers the 30-day calendar).
+    const storedStart = addDaysToKey(today, -(RETENTION_DAYS - 1));
 
     // One bounded read covers history, insights, the goal streak and retrospective forecast examples.
     const [settings, stored, insights, workouts, lookbackWorkouts, preferences] = await Promise.all([
@@ -203,6 +209,8 @@ export class ActivityService {
 
     const byDate = new Map(stored.map(({ complete: _complete, ...summary }) => [summary.date, summary]));
     const history = days.map((date) => ({ date, summary: byDate.get(date) ?? null }));
+    const stepsAvailable = sync.status === 'synced' && !sync.failedMetrics.includes('steps');
+    const healthInsightsOn = settings.insightsEnabled && settings.healthDataEnabled;
 
     return {
       settings,
@@ -212,7 +220,7 @@ export class ActivityService {
         generation: this.generation,
         preferences,
         suggestion: suggestStepGoal({ now, summaries: stored, preferences,
-          available: settings.insightsEnabled && settings.healthDataEnabled && sync.status === 'synced' && !sync.failedMetrics.includes('steps'),
+          available: healthInsightsOn && stepsAvailable,
         }),
         streak: preferences.goal ? goalStreak(stored, preferences.goal.activeSteps, now) : null,
       },
@@ -229,12 +237,12 @@ export class ActivityService {
               : HEALTH_METRICS,
           })
         : null,
-      activityForecast: settings.insightsEnabled && settings.healthDataEnabled
+      activityForecast: healthInsightsOn
         ? {
-            dataSource: this.deps.provider === 'mock' ? 'demo' : 'healthkit',
+            dataSource: FORECAST_DATA_SOURCE[this.deps.provider],
             featureVersion: STEP_FORECAST_FEATURE_VERSION,
-            baseline: predictTomorrowSteps({ now, summaries: stored, stepsAvailable: sync.status === 'synced' && !sync.failedMetrics.includes('steps') }),
-            dataset: buildStepForecastDataset({ asOf: now, summaries: stored, stepsAvailable: sync.status === 'synced' && !sync.failedMetrics.includes('steps') }),
+            baseline: predictTomorrowSteps({ now, summaries: stored, stepsAvailable }),
+            dataset: buildStepForecastDataset({ asOf: now, summaries: stored, stepsAvailable }),
           }
         : null,
       workouts,

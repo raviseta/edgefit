@@ -1,6 +1,6 @@
 import { addDaysToKey, fromDateKey } from '@/domain/dates';
 import type { StoredDailySummary } from '@/domain/models';
-import { buildStepForecastDataset, predictTomorrowSteps } from '../activityForecast';
+import { buildStepForecastDataset, localeWeekendDays, predictTomorrowSteps } from '../activityForecast';
 
 const TODAY = '2026-09-30';
 const now = fromDateKey(TODAY);
@@ -77,6 +77,26 @@ describe('tomorrow’s seven-day step baseline', () => {
     expect(predictTomorrowSteps({ now: fromDateKey(issuedOn), summaries })).toMatchObject({
       status: 'ready', features: { isTargetWeekend: 1 },
     });
+  });
+
+  it('uses the given weekend days, e.g. a Friday/Saturday weekend', () => {
+    const at = (issuedOn: string, weekendDays: (5 | 6 | 7)[]) => predictTomorrowSteps({
+      now: fromDateKey(issuedOn), weekendDays,
+      summaries: history(addDaysToKey(issuedOn, -1), Array(7).fill(5000)),
+    });
+    // 2026-10-02 is a Friday and 2026-10-04 a Sunday; the target is the day after issue.
+    expect(at('2026-10-01', [5, 6])).toMatchObject({ features: { isTargetWeekend: 1 } });
+    expect(at('2026-10-03', [5, 6])).toMatchObject({ features: { isTargetWeekend: 0 } });
+    expect(at('2026-10-03', [6, 7])).toMatchObject({ features: { isTargetWeekend: 1 } });
+  });
+
+  it('defaults to Saturday/Sunday when the engine has no locale week info', () => {
+    const spy = jest.spyOn(Intl, 'Locale').mockImplementation(() => { throw new TypeError('unsupported'); });
+    try {
+      expect(localeWeekendDays()).toEqual([6, 7]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it.each(['2026-03-09', '2026-11-02', '2026-01-01'])('uses local calendar days across DST or year boundaries (%s)', (issuedOn) => {
